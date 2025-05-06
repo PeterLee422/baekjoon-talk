@@ -7,9 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
-from app.schemas.user import UserCreate, UserOut, Token, RefreshToken
+from app.schemas.user import UserCreate, UserOut, Token, RefreshToken, ProfileUpdate
 from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, decode_access_token
 from app.crud import user as crud_user
+from app.crud import conversation as crud_conv
+from app.crud import message as crud_msg
 from app.dependencies import get_current_user, get_session
 
 router = APIRouter()
@@ -61,7 +63,7 @@ async def login(
     # JWT Access Token 생성
     access_token = create_access_token(
         data={"sub": db_user.email},
-        #expires_delta=dt.timedelta(minutes=30),
+        #expires_delta=dt.timedelta(minutes=),
     )
 
     refresh_token = create_refresh_token(
@@ -96,6 +98,50 @@ async def read_users_me(
     User 정보를 Token에서 추출해서 반환
     """
     return current_user
+
+# 1. 회원 정보 수정
+@router.put("/me", response_model=UserOut)
+async def update_profile(
+    update: ProfileUpdate,
+    session: Annotated[Session, Depends(get_session)],
+    user: Annotated[UserOut, Depends(get_current_user)]
+):
+    """
+    로그인한 유저의 회원 정보 수정
+    """
+    #updated_user = crud_user.
+    updated_user = crud_user.update_user_profile(
+        session,
+        user_id=user.id,
+        username=update.username
+    )
+    return UserOut(
+        id=updated_user.id,
+        username=updated_user.username,
+        email=updated_user.email,
+        photo_url=updated_user.photo_url
+    )
+# 2. 회원 탈퇴
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(
+    session: Annotated[Session, Depends(get_session)],
+    user: Annotated[UserOut, Depends(get_current_user)]
+):
+    """
+    회원 탈퇴: 유저 및 관련 대화, 메시지 모두 삭제!
+    """
+    # 대화 및 메시지 삭제
+    conversations = crud_conv.list_user_conversation(session, owner_id=user.id)
+    for conv in conversations:
+        crud_msg.delete_messages_by_conversation(session, conv_id=conv.id)
+        crud_conv.delete_conversation(session, conv_id=conv.id)
+
+    # 유저 삭제
+    crud_user.delete_user(session, user_id=user.id)
+    
+    return None
+
+# 3. 비밀번호 재설정
 
 
 @router.post("/me/photo", response_model=UserOut)
