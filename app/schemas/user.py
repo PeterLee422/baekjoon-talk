@@ -27,10 +27,17 @@ class ProfileUpdate(BaseModel):
     username: str | None = None
     about: str | None = None
 
-
 class Token(BaseModel):
     access_token: str
     refresh_token: str | None = None
+    token_type: str = "bearer"
+
+class GoogleToken(BaseModel):
+    id_token: str
+
+class UserWithToken(UserBase):
+    id: str
+    access_token: str
     token_type: str = "bearer"
 
 class RefreshToken(BaseModel):
