@@ -1,21 +1,24 @@
 # app/routers/google_auth.py
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from typing import Annotated
+from fastapi import APIRouter, HTTPException, Depends
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from sqlmodel import Session
 
 from app.core.configuration import settings
 from app.core.security import create_access_token
-from app.db import fake_db
+from app.schemas.user import UserWithToken, GoogleToken
+from app.crud import user as crud_user
+from app.dependencies import get_session
 
 router = APIRouter()
 
-class TokenIn(BaseModel):
-    id_token: str
-
-@router.post("/verify")
-async def verify_id_token(payload: TokenIn):
+@router.post("/google")
+async def google_login(
+        payload: GoogleToken,
+        session: Annotated[Session, Depends(get_session)]
+):
     """
     Google 인증 방식
     """
@@ -26,14 +29,27 @@ async def verify_id_token(payload: TokenIn):
             audience=settings.GOOGLE_CLIENT_ID,
         )
     except ValueError as e:
-        raise HTTPException(400, f"Invalid Google ID Token: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid Google ID Token: {e}")
     
-    username = info["email"]
-    photo = info.get("picture")
+    email = info["email"]
+    username = info.get("name", email.split("@")[0])
+    photo_url = info.get("picture")
 
-    user = fake_db.get_user(username) or fake_db.add_user(username, hashed_password="", photo_url=photo)
-    if photo and user.get("photo_url") != photo:
-        fake_db.update_user_photo(username, photo)
+    user = crud_user.get_user_by_email(session, email)
+    if not user:
+        user = crud_user.create_user_oauth(
+            session=session,
+            username=username,
+            email=email,
+            photo_url=photo_url
+        )
     
-    jwt = create_access_token({"sub": username})
-    return {"jwt": jwt, "username": username, "photo_url": photo}
+    access_token = create_access_token({"sub": user.email})
+
+    return UserWithToken(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        photo_url=photo_url,
+        access_token=access_token
+    )
