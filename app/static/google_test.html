@@ -1,0 +1,20 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><title>GIS Popup Demo</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    </head><body>
+    <h2>Google Popup Login</h2>
+    <div id="g_id_onload"
+         data-client_id="YOUR_GOOGLE_CLIENT_ID"
+         data-ux_mode="popup"
+         data-callback="handleCredential"></div>
+    <div class="g_id_signin" data-type="standard"></div>
+    <script>
+    function handleCredential(resp){
+      fetch('/auth/google/verify',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id_token:resp.credential})
+      }).then(r=>r.json()).then(d=>{
+        localStorage.setItem('jwt',d.jwt);
+        alert('로그인 완료 '+d.username);
+      }).catch(e=>alert('verify 실패 '+e));
+    }
+    </script></body></html>

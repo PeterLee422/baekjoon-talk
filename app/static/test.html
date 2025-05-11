@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FastAPI Chat Service Test</title>
+</head>
+<body>
+    <h1>FastAPI Chat Service Test</h1>
+
+    <section>
+        <h2>1. 회원가입</h2>
+        <input type="text" id="signup-username" placeholder="Username">
+        <input type="email" id="signup-email" placeholder="Email">
+        <input type="password" id="signup-password" placeholder="Password">
+        <button onclick="signup()">회원가입</button>
+    </section>
+
+    <section>
+        <h2>2. 로그인</h2>
+        <input type="email" id="login-email" placeholder="Email">
+        <input type="password" id="login-password" placeholder="Password">
+        <button onclick="login()">로그인</button>
+        <p id="token-info"></p>
+    </section>
+
+    <section>
+        <h2>3. 대화 시작</h2>
+        <textarea id="start-content" placeholder="첫 메시지"></textarea>
+        <button onclick="startConversation()">대화 시작</button>
+        <p id="conversation-info"></p>
+    </section>
+
+    <section>
+        <h2>4. 메시지 추가</h2>
+        <textarea id="message-content" placeholder="추가할 메시지"></textarea>
+        <button onclick="addMessage()">메시지 추가</button>
+    </section>
+
+    <section>
+        <h2>5. 대화 삭제</h2>
+        <button onclick="deleteConversation()">대화 삭제</button>
+    </section>
+
+    <script>
+        let accessToken = "";
+        let currentConvId = "";
+
+        async function signup() {
+            const username = document.getElementById("signup-username").value;
+            const email = document.getElementById("signup-email").value;
+            const password = document.getElementById("signup-password").value;
+
+            const response = await fetch("/auth/signup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, email, password })
+            });
+
+            const data = await response.json();
+            alert("회원가입 결과: " + JSON.stringify(data));
+        }
+
+        async function login() {
+            const email = document.getElementById("login-email").value;
+            const password = document.getElementById("login-password").value;
+
+            const formData = new URLSearchParams();
+            formData.append("username", email);
+            formData.append("password", password);
+
+            const response = await fetch("/auth/token", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData
+            });
+
+            const data = await response.json();
+            accessToken = data.access_token;
+            document.getElementById("token-info").innerText = "Access Token: " + accessToken;
+            alert("로그인 성공!");
+        }
+
+        async function startConversation() {
+            const content = document.getElementById("start-content").value;
+
+            const response = await fetch("/chat/conversations", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({ content })
+            });
+
+            const data = await response.json();
+            currentConvId = data.id;
+            document.getElementById("conversation-info").innerText = "현재 대화방 ID: " + currentConvId;
+            alert("대화방 생성 성공!");
+        }
+
+        async function addMessage() {
+            const content = document.getElementById("message-content").value;
+
+            const response = await fetch(`/chat/conversations/${currentConvId}/messages`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({ content })
+            });
+
+            const data = await response.json();
+            alert("메시지 추가 결과: " + JSON.stringify(data));
+        }
+
+        async function deleteConversation() {
+            const response = await fetch(`/chat/conversations/${currentConvId}`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": `Bearer ${accessToken}`
+                }
+            });
+
+            if (response.ok) {
+                alert("대화 삭제 성공!");
+            } else {
+                alert("대화 삭제 실패: " + response.status);
+            }
+        }
+    </script>
+</body>
+</html>
