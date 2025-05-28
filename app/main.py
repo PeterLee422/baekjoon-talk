@@ -41,9 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static File 등록
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
 # Router 등록하기
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
