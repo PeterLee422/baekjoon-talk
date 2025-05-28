@@ -10,6 +10,7 @@ from app.db.database import get_session
 from app.models.user import User
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.friend import FriendRequest, Friend
 
 router = APIRouter()
 
@@ -45,6 +46,7 @@ async def db_view(
         html_content += (
             f"<tr><td>{escape(user.id)}</td><td>{escape(user.username)}</td>"
             f"<td>{escape(user.email)}</td><td>{escape(str(user.photo_url))}</td></tr>"
+            f"<td>{escape(str(user.first_login_at) if user.first_login_at else '❌ Never')}</td></tr>"
         )
     html_content += "</table>" if users else "<p>No users found.</p>"
 
@@ -59,7 +61,6 @@ async def db_view(
     html_content += "</table>" if conversations else "<p>No conversations found.</p>"
 
     # Messages
-    # Messages
     html_content += "<h2>✉️ Messages</h2><table border='1'>"
     html_content += (
         "<tr><th>ID</th><th>Conversation ID</th><th>Sender</th><th>Content</th><th>Created At</th></tr>"
@@ -70,7 +71,30 @@ async def db_view(
             f"<td>{escape(msg.sender)}</td><td>{escape(msg.content)}</td><td>{escape(str(msg.created_at))}</td></tr>"
         )
     html_content += "</table>" if messages else "<p>No messages found.</p>"
+    
+    # Friend Requests
+    html_content += "<h2>👬 Friend Requests</h2><table border='1'>"
+    html_content += "<tr><th>ID</th><th>Sender</th><th>Receiver</th><th>Status</th><th>Created At</th></tr>"
+    friend_requests_result = await session.exec(select(FriendRequest))
+    friend_requests = friend_requests_result.all()
+    for req in friend_requests:
+        html_content += (
+            f"<tr><td>{escape(req.id)}</td><td>{escape(req.sender_id)}</td>"
+            f"<td>{escape(req.receiver_id)}</td><td>{escape(req.status)}</td><td>{escape(str(req.created_at))}</td></tr>"
+        )
+    html_content += "</table>" if friend_requests else "<p>No friend requests found.</p>"
 
+    # Friends
+    html_content += "<h2>👬 Friends</h2><table border='1'>"
+    html_content += "<tr><th>ID</th><th>User 1</th><th>User 2</th><th>Created At</th></tr>"
+    friends_result = await session.exec(select(Friend)) 
+    friends = friends_result.all()
+    for friend in friends:
+        html_content += (
+            f"<tr><td>{escape(friend.id)}</td><td>{escape(friend.user1_id)}</td>"
+            f"<td>{escape(friend.user2_id)}</td><td>{escape(str(friend.created_at))}</td></tr>"
+        )
+    html_content += "</table>" if friends else "<p>No friends found.</p>"
 
     html_content += "</body></html>"
 

@@ -3,11 +3,11 @@
 import os, base64
 
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from fastapi.responses import JSONResponse
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.redis import redis_client
 from app.schemas.chat import ConversationOutWithFirstMessage, ConversationOut, MessageIn, MessageOut
 from app.schemas.user import UserOut
 from app.dependencies import get_current_user
@@ -51,11 +51,6 @@ async def get_conversation(
     if conversation.owner_id != user.id:
         raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
 
-    # return ConversationOut(
-    #     id=conversation.id,
-    #     title=conversation.title,
-    #     last_modified=conversation.last_modified
-    # )
     return ConversationOut.model_validate(conversation)
 
 
@@ -75,10 +70,8 @@ async def start_conversation(
 
     if msg_in.voice:
         content = stt.transcribe_audio(msg_in.voice)
-        voice_input = True
     else:
         content = msg_in.content
-        voice_input = False
 
     prompt = """
     당신은 Baekjoon Online Judge의 알고리즘 문제를 추천해주는 친절한 대화형 추천 시스템입니다.
@@ -117,31 +110,21 @@ async def start_conversation(
     )
 
     # LLM 답변
-    #assistant_response = await llm.generate_response([{"role": "user", "content": content}])
-    assistant_response = await llm.generate_response(conversation.id, user, msg_in.content, session)
+    # -> 여기서 제목 생성됨
+    text_response, speech_response = await llm.generate_response(conversation.id, user, msg_in.content, session)
 
     # Assistant(bot) Message 저장
     assistant_message = await crud_message.create_message(
         session=session,
         conv_id=conversation.id,
         sender="assistant",
-        content=assistant_response
+        content=text_response
     )
 
     await crud_conv.update_last_modified(session, conversation.id)
 
     # TTS
-    audio_base64 = None
-
-    if voice_input:
-        tts_file_path = tts.generate_speech(assistant_response)
-
-        # Base64 인코딩
-        with open(tts_file_path, "rb") as f:
-            audio_data = f.read()
-            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-        
-        background_tasks.add_task(os.remove, tts_file_path)
+    await redis_client.setex(f"tts:{assistant_message.id}", 300, speech_response)
 
     return ConversationOutWithFirstMessage(
         id=conversation.id,
@@ -151,7 +134,7 @@ async def start_conversation(
             id=assistant_message.id,
             sender=assistant_message.sender,
             content=assistant_message.content,
-            audio_base64=audio_base64,
+            audio_base64=None,
         )
     )
 
@@ -202,9 +185,6 @@ async def post_message(
     else:
         content = msg_in.content
         voice_input = False
-    
-    # content = stt.transcribe_audio(msg_in.voice) if msg_in.voice else msg_in.content
-    # voice_input = msg_in.voice is not None
 
     # User의 message 저장
     user_message = await crud_message.create_message(
@@ -214,48 +194,28 @@ async def post_message(
         content=content
     )
 
-    # 대화의 기존 메시지 가져오기 (user/assistant 역할 기반)
-    # messages = await crud_message.list_messages_by_conversation(session, conv_id)
-    # history = [
-    #     {
-    #         "role": "user" if m.sender == user.username else "assistant",
-    #         "content": m.content
-    #     }
-    #     for m in messages
-    # ]
-
     # LLM 호출 후 response 생성
-    #assistant_response = await llm.generate_response(history)
-    assistant_response = await llm.generate_response(conversation.id, user, msg_in.content, session)
+    text_response, speech_response = await llm.generate_response(conversation.id, user, msg_in.content, session)
 
     # Assistant(bot) Message 저장
     assistant_message = await crud_message.create_message(
         session=session,
         conv_id=conv_id,
         sender="assistant",
-        content=assistant_response
+        content=text_response
     )
 
     # 대화방 마지막 수정시간 갱신
     await crud_conv.update_last_modified(session, conv_id)
 
     # TTS
-    audio_base64 = None
-
-    if voice_input:
-        tts_file_path = tts.generate_speech(assistant_response)
-
-        with open(tts_file_path, "rb") as f:
-            audio_data = f.read()
-            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-        
-        background_tasks.add_task(os.remove, tts_file_path)
+    await redis_client.setex(f"tts:{assistant_message.id}", 300, speech_response)
 
     return MessageOut(
         id=assistant_message.id,
         sender=assistant_message.sender,
         content=assistant_message.content,
-        audio_base64=audio_base64,
+        audio_base64=None,
     )
 
 @router.delete("/conversations/{conv_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -287,3 +247,18 @@ async def delete_conversation(
             "detail": "Conversation/Messages have successfully deleted."
         }
     )
+
+@router.get("/tts", response_class=StreamingResponse)
+async def get_tts_stream(
+    message_id: str
+):
+    """
+    입력된 텍스트를 음성으로 변환 (MP3 Streaming)
+    """
+    key = f"tts:{message_id}"
+    speech_text = await redis_client.get(key)
+
+    if not speech_text:
+        raise HTTPException(status_code=404, detail="No cached summary for this message")
+
+    return tts.generate_speech(speech_text)

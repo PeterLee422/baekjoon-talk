@@ -1,6 +1,6 @@
 # app/crud/user.py
 
-from sqlmodel import select
+from sqlmodel import select, or_
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models.user import User
 from typing import Annotated
@@ -71,6 +71,27 @@ async def get_user_by_username(
     statement = select(User).where(User.username == username)
     result = await session.exec(statement)
     return result.first()
+
+async def search_users(
+        session: AsyncSession,
+        query: str,
+        exclude_id: str | None = None
+) -> list[User]:
+    """
+    Search Users by Username or Email
+    """
+    statement = select(User).where(
+        or_(
+            User.username.ilike(f"%{query}%"),
+            User.email.ilike(f"%{query}%")
+        )
+    )
+    if exclude_id:
+        statement = statement.where(User.id != exclude_id)
+        
+    result = await session.exec(statement)
+    return result.all()
+    
 
 # User Profile 수정
 async def update_user_profile(

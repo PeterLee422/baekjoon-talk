@@ -55,6 +55,12 @@ async def login(
     if not db_user or not verify_password(form_data.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
+    # 최초 로그인 시 시간 기록
+    if db_user.first_login_at is None:
+        db_user.first_login_at = dt.datetime.now()
+        session.add(db_user)
+        await session.commit()
+    
     # JWT Access Token 생성
     access_token = create_access_token(
         data={"sub": db_user.email},

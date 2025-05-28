@@ -8,12 +8,14 @@ from fastapi import HTTPException
 from app.dependencies import get_current_user
 from app.db.database import get_session
 from app.core.configuration import settings
-from app.core.redis import redis_client
+# from app.core.redis import redis_client
 from app.crud import conversation as crud_conv
 from app.crud import message as crud_msg
 from app.schemas.user import UserOut
 from app.services.boj_llmrec.llmrec import LLMRec, Session
 
+# For Debugging
+from app.core.memory import print_memory_usage
 
 # Global Session Dictionary
 session_registry: dict[str, Session] = {}
@@ -39,36 +41,12 @@ async def get_llm_session(
             raise HTTPException(status_code=403, detail="Unauthorized session access")
         return llm_session
 
+    #2. 대화 불러오기
+    conversation = await crud_conv.get_conversation(db_session, conv_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
 
-    #1. 대화 소유자 검증
-
-    # conversation = await crud_conv.get_conversation(db_session, conv_id)
-    # if not conversation:
-    #     raise ValueError("Conversation not found")
-    
-    # if conversation.owner_id != user_handle.id:
-    #     raise PermissionError("You do not have access to this conversation")
-
-    #2. Dict에 세션 존재하면 반환
-
-    # if conv_id in session_registry:
-    #     return session_registry[conv_id]
-    
-    #3. Dict에 세션 없을 때 Redis에서 불러오기
-
-    # redis_data = await redis_client.get(_session_key(conv_id))
-    # if redis_data:
-    #     try:
-    #         data = json.loads(redis_data)
-    #         prev_msgs = data.get("prev_msgs", [])
-    #         llmrec = LLMRec(settings.LLM_API_KEY, prev_msgs)
-    #         llm_session = llmrec.get_new_session(user_handle.username, conv_id)
-    #         session_registry[conv_id] = llm_session
-    #         return llm_session
-    #     except Exception as e:
-    #         print(f"[Session Load Error] {e}")
-
-    #2. Session이 registry에 없고, 대화 내역이 DB에 있을 때
+    #3. Session이 registry에 없고, 대화 내역이 DB에 있을 때
     messages = await crud_msg.list_messages_by_conversation(db_session, conv_id)
     
     prev_msgs = []
@@ -81,8 +59,14 @@ async def get_llm_session(
             "content": m.content
         })
 
+    # Session 생성
     llmrec = LLMRec(settings.LLM_API_KEY, prev_msgs)
-    llm_session = llmrec.get_new_session(user_handle.username, conv_id)
+    llm_session = llmrec.get_new_session(
+        user_handle.username,
+        conv_id=conv_id,
+        title=conversation.title
+    )
+
     session_registry[conv_id] = llm_session
     return llm_session
 
@@ -112,12 +96,25 @@ async def generate_response(
         user_handle: UserOut,
         message: str,
         db_session: AsyncSession
-) -> str:
+) -> tuple[str, str]:
     """
-    LLM 응답 생성 및 반환, 세션 갱신(Redis, dict)
+    LLM 응답 생성 및 반환, 세션 갱신(dict)
     """
     session = await get_llm_session(conv_id, user_handle, db_session)
-    response = session.chat(message)
+    text_response, speech_response = session.chat(message)
+    
+    # 대화 제목 생성
+    conversation = await crud_conv.get_conversation(db_session, conv_id)
+    if (
+        conversation and # Conversation이 DB에 존재하고
+        conversation.title.strip().lower() == "untitled" and # DB에 저장된 conversation 제목이 untitled
+        session.title and # session에 title이 존재하고
+        session.title.strip().lower() != "untitled" # session의 title 값이 untitled 일 때
+    ):
+        conversation.title = session.title
+        db_session.add(conversation)
+        await db_session.commit()
+
     await save_session(conv_id, session, db_session)
 
-    return response
+    return (text_response, speech_response)

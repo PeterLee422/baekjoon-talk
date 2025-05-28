@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from pydantic import BaseModel, Field, HttpUrl, EmailStr
+import datetime as dt
 
 class UserBase(BaseModel):
     username: Annotated[str, Field(..., example="alice")]
@@ -18,6 +19,7 @@ class UserCreate(UserBase):
 
 class UserOut(UserBase):
     id: str
+    first_login_at: dt.datetime | None = None
     class Config:
         from_attributes = True
     

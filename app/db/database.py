@@ -8,10 +8,11 @@ from app.core.configuration import settings
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
+from app.models.friend import FriendRequest, Friend
 
 DATABASE_URL = (
     f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-    f"@{settings.POSTGRES_HOST}.singapore-postgres.render.com:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 )
 
 

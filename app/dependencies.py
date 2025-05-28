@@ -1,6 +1,7 @@
 # app/dependencies.py
 
 from typing import Annotated
+from collections.abc import Generator
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer

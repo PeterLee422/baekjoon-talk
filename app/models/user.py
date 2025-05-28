@@ -3,6 +3,7 @@
 from sqlmodel import SQLModel, Field
 from typing import Annotated
 from uuid import uuid4
+import datetime as dt
 
 class User(SQLModel, table=True):
     __tablename__ = "user"
@@ -12,3 +13,4 @@ class User(SQLModel, table=True):
     email: Annotated[str, Field(unique=True, index=True)]
     hashed_password: str
     photo_url: str | None = None
+    first_login_at: dt.datetime | None = None
