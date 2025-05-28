@@ -1,13 +1,13 @@
 # app/routers/chat.py
 
-import os, base64
+import os
 
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.redis import redis_client
+from app.core.redis import get_redis_client
 from app.schemas.chat import ConversationOutWithFirstMessage, ConversationOut, MessageIn, MessageOut
 from app.schemas.user import UserOut
 from app.dependencies import get_current_user
@@ -124,6 +124,7 @@ async def start_conversation(
     await crud_conv.update_last_modified(session, conversation.id)
 
     # TTS
+    redis_client = get_redis_client()
     await redis_client.setex(f"tts:{assistant_message.id}", 300, speech_response)
 
     return ConversationOutWithFirstMessage(
@@ -209,6 +210,7 @@ async def post_message(
     await crud_conv.update_last_modified(session, conv_id)
 
     # TTS
+    redis_client = get_redis_client()
     await redis_client.setex(f"tts:{assistant_message.id}", 300, speech_response)
 
     return MessageOut(
@@ -255,6 +257,7 @@ async def get_tts_stream(
     """
     입력된 텍스트를 음성으로 변환 (MP3 Streaming)
     """
+    redis_client = get_redis_client()
     key = f"tts:{message_id}"
     speech_text = await redis_client.get(key)
 
