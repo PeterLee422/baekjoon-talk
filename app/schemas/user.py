@@ -35,6 +35,7 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str | None = None
     token_type: str = "bearer"
+    first_login: bool = True
 
 class GoogleToken(BaseModel):
     id_token: str

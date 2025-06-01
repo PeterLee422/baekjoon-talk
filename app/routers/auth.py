@@ -55,6 +55,8 @@ async def login(
     if not db_user or not verify_password(form_data.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
+    first_login = db_user.first_login_at is None
+
     # 최초 로그인 시 시간 기록
     if db_user.first_login_at is None:
         db_user.first_login_at = dt.datetime.now()
@@ -70,7 +72,7 @@ async def login(
         data={"sub": db_user.email},
     )
 
-    return Token(access_token=access_token, refresh_token=refresh_token)
+    return Token(access_token=access_token, refresh_token=refresh_token, first_login=first_login)
 
 
 @router.post("/refresh", response_model=Token)
