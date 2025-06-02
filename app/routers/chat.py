@@ -64,7 +64,7 @@ async def start_conversation(
     """
     새로운 대화 세션 생성
     """
-    title = "Untitled"
+    title = "untitled"
 
     conversation = await crud_conv.create_conversation(session, owner_id=user.id, title=title)
 
