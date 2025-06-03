@@ -57,11 +57,11 @@ async def login(
     
     first_login = db_user.first_login_at is None
 
-    # 최초 로그인 시 시간 기록
-    if db_user.first_login_at is None:
-        db_user.first_login_at = dt.datetime.now()
-        session.add(db_user)
-        await session.commit()
+    # 최초 로그인 시 시간 기록 -> 기록은 다른 라우터에서 하기로!
+    # if db_user.first_login_at is None:
+    #     db_user.first_login_at = dt.datetime.now()
+    #     session.add(db_user)
+    #     await session.commit()
     
     # JWT Access Token 생성
     access_token = create_access_token(
@@ -73,6 +73,21 @@ async def login(
     )
 
     return Token(access_token=access_token, refresh_token=refresh_token, first_login=first_login)
+
+@router.post("/confirm-first-login")
+async def confirm_first_login(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[UserOut, Depends(get_current_user)]
+):
+    """
+    첫 로그인 확정 (설문조사 이후에 호출)
+    """
+    if user.first_login_at is not None:
+        raise HTTPException(status_code=400, detail="First login already confirmed.")
+    
+    updated_user = await crud_user.update_first_login_at(session, user.id, dt.datetime.now())
+
+    return {"message": "First login confirmed", "first_login_at": updated_user.first_login_at}
 
 
 @router.post("/refresh", response_model=Token)

@@ -5,6 +5,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models.user import User
 from typing import Annotated
 from uuid import uuid4
+import datetime as dt
 
 async def create_user(
         session: AsyncSession,
@@ -91,7 +92,25 @@ async def search_users(
         
     result = await session.exec(statement)
     return result.all()
+
+# first_login_at 수정
+async def update_first_login_at(
+        session: AsyncSession,
+        user_id: str,
+        timestamp: dt.datetime
+) -> User:
+    statement = select(User).where(User.id == user_id)
+    result = await session.exec(statement)
+    user = result.first()
+
+    if not user:
+        raise ValueError("User not found")
     
+    user.first_login_at = timestamp
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
 
 # User Profile 수정
 async def update_user_profile(

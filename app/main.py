@@ -33,7 +33,7 @@ app = FastAPI(
 )
 
 origins = [
-    "https://baekjun-talk.vercel.app/",
+    "https://baekjun-talk.vercel.app",
 ]
 
 app.add_middleware(
