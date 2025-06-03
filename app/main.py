@@ -1,7 +1,6 @@
 # app/main.py
 
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.redis import get_redis_client
@@ -35,6 +34,8 @@ app = FastAPI(
 
 origins = [
     "https://baekjun-talk.vercel.app",
+    "https://baekjun-talk.vercel.app/",
+    "http://baekjun-talk.vercel.app",
     "http://localhost:9000",
     "http://localhost:9000/",
 ]
