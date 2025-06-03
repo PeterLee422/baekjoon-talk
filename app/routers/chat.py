@@ -158,7 +158,9 @@ async def list_messages(
         raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
     
     messages = await crud_message.list_messages_by_conversation(session, conv_id)
-    return [MessageOut(id=m.id, sender=m.sender, content=m.content) for m in messages]
+    filtered_messages = [m for m in messages if m.sender != "developer"]
+
+    return [MessageOut(id=m.id, sender=m.sender, content=m.content) for m in filtered_messages]
 
 @router.post("/conversations/{conv_id}/messages", response_model=MessageOut)
 async def post_message(
