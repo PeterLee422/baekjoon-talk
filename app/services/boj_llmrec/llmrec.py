@@ -10,7 +10,7 @@ class Session:
         self.llm = llm
         self.recommendations = recommendations
         self.title = title
-        self.prev_msgs = []
+        self.prev_msgs = history
         self.conv_id = conv_id
 
     def chat(self, message: str) -> str:
