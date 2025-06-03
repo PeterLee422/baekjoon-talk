@@ -34,6 +34,10 @@ app = FastAPI(
 
 origins = [
     "https://baekjun-talk.vercel.app",
+    "https://baekjun-talk.vercel.app/",
+    "http://baekjun-talk.vercel.app",
+    "http://localhost:9000",
+    "http://localhost:9000/",
 ]
 
 app.add_middleware(
