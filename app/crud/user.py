@@ -117,16 +117,25 @@ async def update_user_profile(
         session: AsyncSession,
         user_id: str,
         username: str | None = None,
+        user_level: str | None = None,
+        goal: str | None = None,
+        interested_tags: list[str] | None = None
         # about: str | None = None
 ) -> User:
     user = await session.get(User, user_id)
     if not user:
         raise ValueError("User not found")
     
-    if username:
+    if username is not None:
         user.username = username
     #if about is not None:
     #    user.about = about
+    if user_level is not None:
+        user.user_level = user_level
+    if goal is not None:
+        user.goal = goal
+    if interested_tags is not None:
+        user.interested_tags = interested_tags
     
     session.add(user)
     await session.commit()

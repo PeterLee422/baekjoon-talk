@@ -17,12 +17,15 @@ class ConversationOut(BaseModel):
 class MessageIn(BaseModel):
     content: Annotated[str, Field(None, example="Hello, how are you?")]
     voice: bytes | None = None
+    code: str | None = None
+    language: str | None = None
 
 class MessageOut(BaseModel):
     id: str
     sender: str
     content: str
-    audio_base64: str | None = None
+    keywords: list[str] | None = None
+    # audio_base64: str | None = None
 
 class ConversationOutWithFirstMessage(BaseModel):
     id: str

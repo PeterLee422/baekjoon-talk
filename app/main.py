@@ -8,6 +8,7 @@ from app.core.redis import get_redis_client
 from app.core.configuration import settings
 from app.routers import auth, chat, google_auth, test, friend
 from app.db.database import init_db, reset_db
+#from app.models import conversation, message, friend, user
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,8 +20,8 @@ async def lifespan(app: FastAPI):
         print("Redis 연결 실패!", e)
         raise
 
-    #await reset_db()
-    await init_db()
+    await reset_db()
+    #await init_db()
     yield
 
 app = FastAPI(
@@ -34,8 +35,6 @@ app = FastAPI(
 
 origins = [
     "https://baekjun-talk.vercel.app",
-    "https://baekjun-talk.vercel.app/",
-    "http://baekjun-talk.vercel.app",
     "http://localhost:9000",
     "http://localhost:9000/",
 ]

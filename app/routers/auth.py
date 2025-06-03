@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.db.database import get_session
-from app.schemas.user import UserCreate, UserOut, Token, RefreshToken, ProfileUpdate
+from app.schemas.user import UserCreate, UserOut, Token, RefreshToken, ProfileUpdate, UserProfileUpdateOnFirstLogin
 from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, decode_access_token
 from app.crud import user as crud_user
 from app.crud import conversation as crud_conv
@@ -74,10 +74,11 @@ async def login(
 
     return Token(access_token=access_token, refresh_token=refresh_token, first_login=first_login)
 
-@router.post("/confirm-first-login")
+@router.post("/confirm-first-login", response_model=UserOut)
 async def confirm_first_login(
     session: Annotated[AsyncSession, Depends(get_session)],
-    user: Annotated[UserOut, Depends(get_current_user)]
+    user: Annotated[UserOut, Depends(get_current_user)],
+    profile_data: UserProfileUpdateOnFirstLogin
 ):
     """
     첫 로그인 확정 (설문조사 이후에 호출)
@@ -85,9 +86,22 @@ async def confirm_first_login(
     if user.first_login_at is not None:
         raise HTTPException(status_code=400, detail="First login already confirmed.")
     
-    updated_user = await crud_user.update_first_login_at(session, user.id, dt.datetime.now())
+    try:
+        updated_user = await crud_user.update_user_profile(
+            session=session,
+            user_id=user.id,
+            user_level=profile_data.user_level,
+            goal=profile_data.goal,
+            interested_tags=profile_data.interested_tags
+        )
+        updated_user = await crud_user.update_first_login_at(session, user.id, dt.datetime.now())
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to confirm first login and update profile: {e}")
 
-    return {"message": "First login confirmed", "first_login_at": updated_user.first_login_at}
+    #return {"message": "First login confirmed", "first_login_at": updated_user.first_login_at}
+    return UserOut.model_validate(updated_user)
 
 
 @router.post("/refresh", response_model=Token)
@@ -127,11 +141,19 @@ async def update_profile(
     로그인한 유저의 회원 정보 수정
     """
     #updated_user = crud_user.
-    updated_user = await crud_user.update_user_profile(
-        session,
-        user_id=user.id,
-        username=update.username
-    )
+    try:
+        updated_user = await crud_user.update_user_profile(
+            session,
+            user_id=user.id,
+            username=update.username,
+            user_level=update.user_level,
+            goal=update.goal,
+            interested_tags=update.interested_tags
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update user profile : {e}")
 
     return UserOut.model_validate(updated_user)
 

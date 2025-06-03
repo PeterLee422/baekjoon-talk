@@ -70,6 +70,14 @@ async def start_conversation(
 
     if msg_in.voice:
         content = stt.transcribe_audio(msg_in.voice)
+    elif msg_in.code:
+        # TODO: System prompt 추가하기
+
+        content = (
+            f"분석할 코드 ({msg_in.language or 'unknown'}):\n"
+            f"```\n{msg_in.code}\n```\n\n"
+            f"사용자 질문: {msg_in.content}" if msg_in.content else f"사용자 질문: 위의 코드의 오류를 찾고 힌트를 주세요."
+        )
     else:
         content = msg_in.content
 
@@ -95,6 +103,30 @@ async def start_conversation(
     - 문제의 난이도 제한은 사용자의 요구가 있지 않은 한 설정하지 않습니다.
     """
 
+    profile_prompt = "사용자 프로필 정보:\n"
+    level_desc = {
+        "very low": "사용자는 프로그래밍 경험이 거의 없으며, 기본 문법 정도만 알고 있습니다.",
+        "low": "사용자는 간단한 입출력·자료형을 다룰 수 있지만 알고리즘 경험이 많지 않습니다.",
+        "medium": "사용자는 정렬·구현·기초 자료구조 문제를 무리 없이 해결할 수 있습니다.",
+        "high": "사용자는 그래프·DP·그리디 등 중급 알고리즘을 습득했고, 중~고난도 문제 경험이 있습니다.",
+        "very high": "사용자는 복잡한 알고리즘/자료구조를 능숙히 사용하며, 대회 수준 문제도 해결 가능합니다.",
+    }
+    if (lvl := user.user_level) in level_desc:
+        profile_prompt += level_desc[lvl] + "\n"
+    goal_desc = {
+        "coding test": "주요 목표는 취업 코딩 테스트 대비입니다.",
+        "contest": "주요 목표는 알고리즘 대회(ICPC·PS 대회) 준비입니다.",
+        "learning": "주요 목표는 알고리즘 지식 확장 및 실력 향상입니다.",
+        "hobby": "주요 목표는 취미로 문제 풀이를 즐기는 것입니다.",
+    }
+    if (goal := user.goal) in goal_desc:
+        profile_prompt += goal_desc[goal] + "\n"
+    if tags := user.interested_tags:
+        tag_list = ", ".join(tags)
+        profile_prompt += f"사용자는 다음 주제에 특히 흥미가 있습니다: {tag_list}.\n"
+    
+    prompt = prompt + profile_prompt
+
     developer_prompt = await crud_message.create_message(
         session=session,
         conv_id=conversation.id,
@@ -111,7 +143,7 @@ async def start_conversation(
 
     # LLM 답변
     # -> 여기서 제목 생성됨
-    text_response, speech_response = await llm.generate_response(conversation.id, user, msg_in.content, session)
+    text_response, speech_response, keywords = await llm.generate_response(conversation.id, user, msg_in.content, session)
 
     # Assistant(bot) Message 저장
     assistant_message = await crud_message.create_message(
@@ -135,7 +167,7 @@ async def start_conversation(
             id=assistant_message.id,
             sender=assistant_message.sender,
             content=assistant_message.content,
-            audio_base64=None,
+            keywords=keywords
         )
     )
 
@@ -158,6 +190,7 @@ async def list_messages(
         raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
     
     messages = await crud_message.list_messages_by_conversation(session, conv_id)
+    # sender가 "developer"인 시스템 프롬프트는 제외
     filtered_messages = [m for m in messages if m.sender != "developer"]
 
     return [MessageOut(id=m.id, sender=m.sender, content=m.content) for m in filtered_messages]
@@ -184,10 +217,16 @@ async def post_message(
     # 음성 입력이 있으면 STT로 변환한다.
     if msg_in.voice:
         content = stt.transcribe_audio(msg_in.voice)
-        voice_input = True
+    elif msg_in.code:
+        # TODO: System prompt 추가하기
+
+        content = (
+            f"<분석할 코드 ({msg_in.language or 'unknown'}:\n)"
+            f"```\n{msg_in.code}\n```\n\n"
+            f"사용자 질문: {msg_in.content}" if msg_in.content else f"사용자 질문: 위의 코드의 오류를 찾고 힌트를 주세요."
+        )
     else:
         content = msg_in.content
-        voice_input = False
 
     # User의 message 저장
     user_message = await crud_message.create_message(
@@ -198,7 +237,7 @@ async def post_message(
     )
 
     # LLM 호출 후 response 생성
-    text_response, speech_response = await llm.generate_response(conversation.id, user, msg_in.content, session)
+    text_response, speech_response, keywords = await llm.generate_response(conversation.id, user, msg_in.content, session)
 
     # Assistant(bot) Message 저장
     assistant_message = await crud_message.create_message(
@@ -219,7 +258,7 @@ async def post_message(
         id=assistant_message.id,
         sender=assistant_message.sender,
         content=assistant_message.content,
-        audio_base64=None,
+        keywords=keywords
     )
 
 @router.delete("/conversations/{conv_id}", status_code=status.HTTP_204_NO_CONTENT)

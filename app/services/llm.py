@@ -59,10 +59,18 @@ async def get_llm_session(
             "content": m.content
         })
 
+    # Profile 만들기
+    profile = {
+        "user_level": user_handle.user_level,
+        "goal": user_handle.goal,
+        "interested_tags": user_handle.interested_tags
+    }
+
     # Session 생성
     llmrec = LLMRec(settings.LLM_API_KEY, prev_msgs)
     llm_session = llmrec.get_new_session(
-        user_handle.username,
+        user_handle=user_handle.username,
+        profile=profile,
         conv_id=conv_id,
         title=conversation.title
     )
@@ -101,7 +109,7 @@ async def generate_response(
     LLM 응답 생성 및 반환, 세션 갱신(dict)
     """
     session = await get_llm_session(conv_id, user_handle, db_session)
-    text_response, speech_response = session.chat(message)
+    text_response, speech_response, keywords = session.chat(message)
     
     # 대화 제목 생성
     conversation = await crud_conv.get_conversation(db_session, conv_id)
@@ -117,4 +125,4 @@ async def generate_response(
 
     await save_session(conv_id, session, db_session)
 
-    return (text_response, speech_response)
+    return (text_response, speech_response, keywords)

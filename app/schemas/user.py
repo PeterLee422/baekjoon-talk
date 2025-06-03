@@ -20,6 +20,9 @@ class UserCreate(UserBase):
 class UserOut(UserBase):
     id: str
     first_login_at: dt.datetime | None = None
+    user_level: str | None = None
+    goal: str | None = None
+    interested_tags: list[str] | None = None
     class Config:
         from_attributes = True
     
@@ -27,9 +30,17 @@ class LoginIn(BaseModel):
     email: EmailStr
     password: str
 
+class UserProfileUpdateOnFirstLogin(BaseModel):
+    user_level: str = Field(..., description="'very low', 'low', 'medium', 'high', 'very high'")
+    goal: str = Field(..., description="'coding test', 'contestn', 'learning', 'hobby'")
+    interested_tags: list[str] = Field(..., description="'DP', '그래프', '자료구조', '수학', '구현', '문자열', '탐욕법', '트리', '정렬'")
+
 class ProfileUpdate(BaseModel):
     username: str | None = None
     about: str | None = None
+    user_level: str | None = None
+    goal: str | None = None
+    interested_tags: list[str] | None = None
 
 class Token(BaseModel):
     access_token: str
