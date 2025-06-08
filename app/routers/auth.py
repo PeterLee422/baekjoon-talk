@@ -15,6 +15,7 @@ from app.core.redis import get_redis_client
 from app.crud import user as crud_user
 from app.crud import conversation as crud_conv
 from app.crud import message as crud_msg
+from app.crud import friend as crud_friend
 from app.crud import user_keyword as crud_user_keyword
 from app.crud import user_activity as crud_user_activity
 from app.dependencies import get_current_user, oauth2_scheme, REDIS_LAST_ACTIVE_PREFIX, REDIS_SESSION_START_PREFIX
@@ -264,22 +265,36 @@ async def delete_account(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Token")
     
     user_email = payload.get("sub")
-    user_id = (await crud_user.get_user_by_email(session, user_email)).id
-    session_id = payload.get("session_id")
-
-    if not user_id:
+    db_user = await crud_user.get_user_by_email(session, user_email)
+    if not db_user:
         raise HTTPException(status_code=404, detail="User not found from token.")
     
+    user_id = db_user.id
+    session_id = payload.get("session_id")
+
+    # 1. 활성화된 세션이 있으면 세션 종료
     if session_id:
         await end_user_session(session, user_id, session_id)
 
+    # 2. 모든 대화 및 메시지 삭제
     conversations = await crud_conv.list_user_conversation(session, owner_id=user_id)
     for conversation in conversations:
         await crud_msg.delete_messages_by_conversation(session, conv_id=conversation.id)
-        await crud_conv.delete_conversation(session, conv_id=conversation.id)
+        # await crud_conv.delete_conversation(session, conv_id=conversation.id)
     
+    # 3. 친구 요청 삭제
+    await crud_friend.delete_friend_requests_by_user(session, user_id=user_id)
+    # 4. 친구 관계 삭제
+    await crud_friend.delete_friends_by_user(session, user_id=user_id)
+    # 5. 사용자 키워드 삭제
     await crud_user_keyword.delete_user_keywords(session, user_id=user_id)
+    # 6. 사용자 활동 기록 삭제
     await crud_user_activity.delete_user_activity(session, user_id=user_id)
+
+    for conversation in conversations:
+        await crud_conv.delete_conversation(session, conv_id=conversation.id)
+
+    # 7. 사용자 계정 삭제
     await crud_user.delete_user(session, user_id=user_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

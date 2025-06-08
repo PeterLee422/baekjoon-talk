@@ -21,13 +21,12 @@ class Session:
         return text_response, speech_response, keywords
 
 class LLMRec:
-    def __init__(self, api_key: str, prev_msgs: list = []) -> None:
+    def __init__(self, api_key: str) -> None:
         self.TOP_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.DATA_PATH = os.path.join(self.TOP_PATH, 'data')
         self.MODEL_PATH = os.path.join(self.TOP_PATH, 'saved')
         self.recommender = Recommender(self.DATA_PATH)
         self.llm = LLM(api_key=api_key, recommender=self.recommender)
-        self.prev_msgs = prev_msgs
         self._load_model()
 
     def _load_model(self) -> None:
@@ -41,6 +40,6 @@ class LLMRec:
         self.recommender.load_model(multivae_model_path, model_type='MultiVAE')
         self.llm = LLM(api_key=self.llm.api_key, recommender=self.recommender)
 
-    def get_new_session(self, user_handle: str, profile: dict, conv_id: str, title: str) -> Session:
-        session = Session(self.llm, user_handle, profile, conv_id, title, self.prev_msgs)
+    def get_new_session(self, user_handle: str, profile: dict, conv_id: str, title: str, history: list = []) -> Session:
+        session = Session(self.llm, user_handle, profile, conv_id, title, history)
         return session

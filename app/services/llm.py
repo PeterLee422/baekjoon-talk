@@ -5,10 +5,8 @@ import pandas as pd
 from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import HTTPException
 
-from app.dependencies import get_current_user
-from app.db.database import get_session
 from app.core.configuration import settings
-# from app.core.redis import redis_client
+from app.core.redis import get_redis_client # Redis 활용하여 최적화
 from app.crud import conversation as crud_conv
 from app.crud import message as crud_msg
 from app.schemas.user import UserOut
@@ -17,12 +15,22 @@ from app.services.boj_llmrec.llmrec import LLMRec, Session
 # For Debugging
 from app.core.memory import print_memory_usage
 
-# Global Session Dictionary
-session_registry: dict[str, Session] = {}
-SESSION_PREFIX = "session:conv:"
+# Global Session Dictionary -> Not Now!
+# session_registry: dict[str, Session] = {}
+SESSION_PREFIX = "llm_session:conv:"
+REDIS_LLM_SESSION_TTL_SECONDS = 3600 # 1 Hours
+_global_llmrec_instance: LLMRec | None = None
 
+# For Redis
 def _session_key(conv_id: str) -> str:
     return f"{SESSION_PREFIX}{conv_id}"
+
+def initialize_llmrec_instance():
+    global _global_llmrec_instance
+    if _global_llmrec_instance is None:
+        _global_llmrec_instance = LLMRec(api_key=settings.LLM_API_KEY)
+        print("[LLM Service] Global LLMRec instance initialized.")
+    return _global_llmrec_instance
 
 async def get_llm_session(
         conv_id: str,
@@ -34,22 +42,47 @@ async def get_llm_session(
         - 이미 세션이 존재할 경우 반환
         - 세션이 없을 경우 세션 생성
     """
-    #1. Session이 registry에 있을 때
-    llm_session = session_registry.get(conv_id)
-    if llm_session is not None:
-        if llm_session.user_handle != user_handle.username:
-            raise HTTPException(status_code=403, detail="Unauthorized session access")
-        return llm_session
+    # 1. Redis에서 불러오기
+    redis_client = get_redis_client()
+    llm_session_key = _session_key(conv_id=conv_id)
+    llmrec = initialize_llmrec_instance()
 
-    #2. 대화 불러오기
+    cached_session_data_json = await redis_client.get(llm_session_key)
+    if cached_session_data_json:
+        try:
+            cached_session_data = json.loads(cached_session_data_json)
+            prev_msgs_from_cache = cached_session_data.get("prev_msgs", [])
+
+            llm_session = llmrec.get_new_session(
+                user_handle=cached_session_data.get("user_handle"),
+                profile=cached_session_data.get("profile"),
+                conv_id=cached_session_data.get("conv_id"),
+                title=cached_session_data.get("title", "untitled"),
+                history=prev_msgs_from_cache
+            )
+            await redis_client.expire(llm_session_key, REDIS_LLM_SESSION_TTL_SECONDS)
+            print(f"[LLM Service] Redis: LLM session loaded for conv_id {conv_id} and TTL reset.")
+
+            if llm_session.user_handle != user_handle.username:
+                raise HTTPException(status_code=403, detail="Unauthorized session access: User mismatch for cached sesion.")
+
+            # session_registry[conv_id] = llm_session
+            return llm_session
+        except json.JSONDecodeError as e:
+            print(f"[LLM Service] Error decoding LLM session from Redis for {conv_id}: {e}. Falling back to DB.")
+        except KeyError as e:
+            print(f"[LLM Service] Missing data in cached LLM session for {conv_id}: {e}. Falling back to DB.")
+        except Exception as e:
+            print(f"[LLM Service] Error restoring LLM session for {conv_id}: {e}. Falling back to DB.")
+
+    # 2. Redis에 없거나 복원 실패 시
     conversation = await crud_conv.get_conversation(db_session, conv_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    #3. Session이 registry에 없고, 대화 내역이 DB에 있을 때
     messages = await crud_msg.list_messages_by_conversation(db_session, conv_id)
-    
     prev_msgs = []
+
     for m in messages:
         role = "user" if m.sender == user_handle.username else (
             "assistant" if m.sender == "assistant" else "developer"
@@ -67,15 +100,16 @@ async def get_llm_session(
     }
 
     # Session 생성
-    llmrec = LLMRec(settings.LLM_API_KEY, prev_msgs)
     llm_session = llmrec.get_new_session(
         user_handle=user_handle.username,
         profile=profile,
         conv_id=conv_id,
-        title=conversation.title
+        title=conversation.title,
+        history=prev_msgs
     )
 
-    session_registry[conv_id] = llm_session
+    await save_session(conv_id, llm_session, db_session)
+    # session_registry[conv_id] = llm_session
     return llm_session
 
 async def save_session(
@@ -83,8 +117,25 @@ async def save_session(
         llm_session: Session,
         db_session: AsyncSession
 ):
-    session_registry[conv_id] = llm_session
+    redis_client = get_redis_client()
+    # session_registry[conv_id] = llm_session
 
+    session_data = {
+        "user_handle": llm_session.user_handle,
+        "profile": llm_session.profile,
+        "title": llm_session.title,
+        "prev_msgs": llm_session.prev_msgs,
+        "conv_id": llm_session.conv_id
+    }
+    try:
+        await redis_client.setex(
+            _session_key(conv_id),
+            REDIS_LLM_SESSION_TTL_SECONDS,
+            json.dumps(session_data)
+        )
+        print(f"[LLM Service] Redis: LLM session saved for conv_id {conv_id}. TTL: {REDIS_LLM_SESSION_TTL_SECONDS}s.")
+    except Exception as e:
+        print(f"[LLM Service] ERROR: Failed to save LLM session to Redis for {conv_id}: {e}")
     # redis_data = {
     #     "username": llm_session.user_handle,
     #     "prev_msgs": llm_session.prev_msgs,
@@ -97,7 +148,11 @@ async def delete_session(
         conv_id: str
 ):
     # await redis_client.delete(_session_key(conv_id))
-    session_registry.pop(conv_id, None)
+    redis_client = get_redis_client()
+    
+    # session_registry.pop(conv_id, None)
+    await redis_client.delete(_session_key(conv_id))
+    print(f"[LLM Service] Redis and in-memory: LLM session deleted for conv_id {conv_id}.")
 
 async def generate_response(
         conv_id: str,

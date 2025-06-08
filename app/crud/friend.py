@@ -153,3 +153,35 @@ async def delete_friend(
         if friend:
             session.delete(friend)
     await session.commit()
+
+async def delete_friend_requests_by_user(
+        session: AsyncSession,
+        user_id: str
+) -> None:
+    """
+    특정 유저와 관련된 모든 친구 요청 삭제
+    """
+    statement = select(FriendRequest).where(
+        (FriendRequest.sender_id == user_id) | (FriendRequest.receiver_id == user_id)
+    )
+    result = await session.exec(statement)
+    friend_requests = result.all()
+    for request in friend_requests:
+        await session.delete(request)
+    await session.commit()
+
+async def delete_friends_by_user(
+        session: AsyncSession,
+        user_id: str
+) -> None:
+    """
+    특정 유저와 관련된 모든 친구 관계 삭제
+    """
+    statement = select(Friend).where(
+        (Friend.user_id == user_id) | (Friend.friend_id == user_id)
+    )
+    result = await session.exec(statement)
+    friends = result.all()
+    for friend in friends:
+        await session.delete(friend)
+    await session.commit()
