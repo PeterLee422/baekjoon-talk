@@ -63,3 +63,4 @@ class RefreshToken(BaseModel):
 
 class TokenData(BaseModel):
     username: str | None = None
+    session_id: str | None = None

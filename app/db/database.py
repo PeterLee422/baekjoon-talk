@@ -9,6 +9,8 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.user import User
 from app.models.friend import FriendRequest, Friend
+from app.models.user_keyword import UserKeyword
+from app.models.user_activity import UserActivity
 
 DATABASE_URL = (
     f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"

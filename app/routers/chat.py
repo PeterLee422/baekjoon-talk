@@ -14,6 +14,7 @@ from app.dependencies import get_current_user
 from app.db.database import get_session
 from app.crud import message as crud_message
 from app.crud import conversation as crud_conv
+from app.crud import user_keyword as crud_user_keyword
 from app.services import stt, llm, tts
 
 router = APIRouter()
@@ -145,6 +146,16 @@ async def start_conversation(
     # -> 여기서 제목 생성됨
     text_response, speech_response, keywords = await llm.generate_response(conversation.id, user, msg_in.content, session)
 
+    # Keyword 저장
+    if keywords:
+        await crud_user_keyword.create_multiple_user_keywords(
+            session=session,
+            user_id=user.id,
+            conversation_id=conversation.id,
+            keywords=keywords
+        )
+
+
     # Assistant(bot) Message 저장
     assistant_message = await crud_message.create_message(
         session=session,
@@ -238,6 +249,15 @@ async def post_message(
 
     # LLM 호출 후 response 생성
     text_response, speech_response, keywords = await llm.generate_response(conversation.id, user, msg_in.content, session)
+
+    # Keyword 저장
+    if keywords:
+        await crud_user_keyword.create_multiple_user_keywords(
+            session=session,
+            user_id=user.id,
+            conversation_id=conversation.id,
+            keywords=keywords
+        )
 
     # Assistant(bot) Message 저장
     assistant_message = await crud_message.create_message(
