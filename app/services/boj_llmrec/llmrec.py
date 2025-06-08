@@ -16,7 +16,7 @@ class Session:
     def chat(self, message: str) -> str:
         text_response, speech_response, prev_msgs, keywords = self.llm.chat(message, self.prev_msgs, self.user_handle, self.profile)
         self.prev_msgs = prev_msgs
-        if not self.title:
+        if self.title == "untitled":
             self.title = self.llm.get_session_title(message, speech_response)
         return text_response, speech_response, keywords
 

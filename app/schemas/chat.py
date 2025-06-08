@@ -15,10 +15,11 @@ class ConversationOut(BaseModel):
         from_attributes = True
 
 class MessageIn(BaseModel):
-    content: Annotated[str, Field(None, example="Hello, how are you?")]
+    content: Annotated[str, Field(None, example="내가 풀어보지 않은 문제 추천해줘.")]
     voice: bytes | None = None
     code: str | None = None
     language: str | None = None
+    problem_info: str | None = Field(None, example="문제 정보 입력하기")
 
 class MessageOut(BaseModel):
     id: str

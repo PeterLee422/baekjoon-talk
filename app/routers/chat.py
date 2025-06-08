@@ -14,6 +14,7 @@ from app.dependencies import get_current_user
 from app.db.database import get_session
 from app.crud import message as crud_message
 from app.crud import conversation as crud_conv
+from app.crud import user as crud_user
 from app.crud import user_keyword as crud_user_keyword
 from app.services import stt, llm, tts
 
@@ -65,20 +66,15 @@ async def start_conversation(
     """
     새로운 대화 세션 생성
     """
+    if not msg_in.content:
+        raise HTTPException(status_code=400, detail="Please provide a text message to start a conversation.")
+
     title = "untitled"
 
     conversation = await crud_conv.create_conversation(session, owner_id=user.id, title=title)
 
     if msg_in.voice:
         content = stt.transcribe_audio(msg_in.voice)
-    elif msg_in.code:
-        # TODO: System prompt 추가하기
-
-        content = (
-            f"분석할 코드 ({msg_in.language or 'unknown'}):\n"
-            f"```\n{msg_in.code}\n```\n\n"
-            f"사용자 질문: {msg_in.content}" if msg_in.content else f"사용자 질문: 위의 코드의 오류를 찾고 힌트를 주세요."
-        )
     else:
         content = msg_in.content
 
@@ -226,29 +222,49 @@ async def post_message(
         raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
     
     # 음성 입력이 있으면 STT로 변환한다.
+    content = ""
+    code_content_for_db = None
+    problem_info_for_db = None
     if msg_in.voice:
         content = stt.transcribe_audio(msg_in.voice)
     elif msg_in.code:
         # TODO: System prompt 추가하기
+        await crud_user.increment_code_analysis(session, user.id)
 
-        content = (
-            f"<분석할 코드 ({msg_in.language or 'unknown'}:\n)"
-            f"```\n{msg_in.code}\n```\n\n"
-            f"사용자 질문: {msg_in.content}" if msg_in.content else f"사용자 질문: 위의 코드의 오류를 찾고 힌트를 주세요."
+        code_block = (
+            f"분석할 코드 ({msg_in.language or 'unknown'}):\n"
+            f"```\n{msg_in.code}\n```"
         )
+        user_question = msg_in.content if msg_in.content else "위의 코드에 대해 설명하거나 오류를 찾고 힌트를 주세요."
+
+        if msg_in.problem_info:
+            content = (
+                f"문제 정보: {msg_in.problem_info}\n"
+                f"{code_block}\n\n"
+                f"사용자 질문: {user_question}"
+            )
+        else:
+            content = (
+                f"{code_block}\n\n"
+                f"사용자 질문: {user_question}"
+            )
     else:
         content = msg_in.content
 
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="Message content required.")
+
     # User의 message 저장
+
     user_message = await crud_message.create_message(
         session,
         conv_id=conv_id,
         sender=user.username,
-        content=content
+        content=msg_in.content
     )
 
     # LLM 호출 후 response 생성
-    text_response, speech_response, keywords = await llm.generate_response(conversation.id, user, msg_in.content, session)
+    text_response, speech_response, keywords = await llm.generate_response(conversation.id, user, content, session)
 
     # Keyword 저장
     if keywords:
@@ -298,6 +314,9 @@ async def delete_conversation(
     if conversation.owner_id != user.id:
         raise HTTPException(status_code=403, detail="Permission denied")
     
+    # Conversation과 관련된 모든 Keyword 삭제
+    await crud_user_keyword.delete_user_keywords_by_conversation(session, conv_id)
+
     # Message 삭제
     await crud_message.delete_messages_by_conversation(session, conv_id)
 

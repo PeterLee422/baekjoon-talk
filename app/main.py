@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.redis import get_redis_client
 from app.core.configuration import settings
-from app.routers import auth, chat, google_auth, test, friend
+from app.routers import auth, chat, google_auth, test, friend, feedback
 from app.db.database import init_db, reset_db
 #from app.models import conversation, message, friend, user
 
@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
         raise
 
     await reset_db()
-    #await init_db()
+    # await init_db()
     yield
 
 app = FastAPI(
@@ -54,6 +54,7 @@ app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 app.include_router(google_auth.router, prefix="/oauth", tags=["Oauth"])
 app.include_router(test.router, prefix="/test", tags=["Test"])
 app.include_router(friend.router, prefix="/friend", tags=["Friend"])
+app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
 
 @app.get("/")
 async def root():

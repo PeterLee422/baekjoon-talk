@@ -4,14 +4,13 @@ import datetime as dt
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models.message import Message
-from typing import Annotated
 from uuid import uuid4
 
 async def create_message(
         session: AsyncSession,
         conv_id: str,
         sender: str,
-        content: str
+        content: str,
 ) -> Message:
     """
     Message 생성
@@ -24,7 +23,7 @@ async def create_message(
         conv_id=conv_id,
         created_at=dt.datetime.now(),
         sender=sender,
-        content=content
+        content=content,
     )
     session.add(message)
     await session.commit()

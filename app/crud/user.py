@@ -166,3 +166,18 @@ async def delete_user(
     if user:
         await session.delete(user)
         await session.commit()
+
+async def increment_code_analysis(
+        session: AsyncSession,
+        user_id: str
+) -> User | None:
+    """
+    특정 사용자의 code_analysis (코드 분석/힌트 요청 횟수) 1 증가
+    """
+    user = await session.get(User, user_id)
+    if user:
+        user.code_analysis = (user.code_analysis or 0) + 1
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    return user
