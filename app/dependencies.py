@@ -47,7 +47,7 @@ async def get_current_user(
     # 사용자가 살아있는가
     if db_user.id and current_session_id:
         redis_client = get_redis_client()
-        current_time = dt.datetime.now()
+        current_time = dt.datetime.now(settings.KST)
 
         await redis_client.set(f"{REDIS_LAST_ACTIVE_PREFIX}{db_user.id}", current_time.isoformat())
         session_start_key = f"{REDIS_SESSION_START_PREFIX}{db_user.id}:{current_session_id}"
