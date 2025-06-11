@@ -15,7 +15,7 @@ from app.models.code_analysis_request import CodeAnalysisRequest
 
 DATABASE_URL = (
     f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    f"@{settings.POSTGRES_HOST}.singapore-postgres.render.com:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 )
 
 
