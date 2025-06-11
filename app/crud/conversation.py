@@ -6,6 +6,7 @@ from app.models.conversation import Conversation
 from typing import Annotated
 from uuid import uuid4
 import datetime as dt
+from app.core.configuration import settings
 
 async def create_conversation(
         session: AsyncSession,
@@ -18,7 +19,7 @@ async def create_conversation(
     - Title (대화 제목. 대화의 첫번째 질의로 변경하도록 구현하기)
     """
     #now = dt.datetime.now().isoformat()
-    now = dt.datetime.now()
+    now = dt.datetime.now(settings.KST)
     #now = dt.datetime.utcnow()
     conversation = Conversation(
         id=str(uuid4()),
@@ -54,7 +55,7 @@ async def update_last_modified(
     if conversation:
         #conversation.last_modified = dt.datetime.now().isoformat()
         #conversation.last_modified = dt.datetime.now(dt.timezone.utc)
-        conversation.last_modified = dt.datetime.now()
+        conversation.last_modified = dt.datetime.now(settings.KST)
         session.add(conversation)
         await session.commit()
         await session.refresh(conversation)

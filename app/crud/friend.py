@@ -7,6 +7,7 @@ from app.models.friend import FriendRequest, Friend
 from typing import Annotated
 from uuid import uuid4
 import datetime as dt
+from app.core.configuration import settings
 
 async def create_friend_request(
         session: AsyncSession,
@@ -30,7 +31,7 @@ async def create_friend_request(
         sender_id=sender_id,
         receiver_id=receiver_id,
         status="pending",
-        created_at=dt.datetime.now()
+        created_at=dt.datetime.now(settings.KST)
     )
 
     session.add(friend_request)

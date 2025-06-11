@@ -4,7 +4,9 @@ import datetime as dt
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models.message import Message
+from typing import Annotated
 from uuid import uuid4
+from app.core.configuration import settings
 
 async def create_message(
         session: AsyncSession,
@@ -21,7 +23,7 @@ async def create_message(
     message = Message(
         id=str(uuid4()),
         conv_id=conv_id,
-        created_at=dt.datetime.now(),
+        created_at=dt.datetime.now(settings.KST),
         sender=sender,
         content=content,
     )

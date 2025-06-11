@@ -2,6 +2,8 @@
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
+import pytz
+import datetime as dt
 
 class Settings(BaseSettings):
     """
@@ -29,6 +31,11 @@ class Settings(BaseSettings):
             "description": "Google을 통한 인증 관련"
         }
     ]
+    # Timezone 관련 내용들
+    TIMEZONE: str = "Asia/Seoul"
+    @property
+    def KST(self) -> dt.tzinfo:
+        return pytz.timezone(self.TIMEZONE);
 
     # JWT Token 관련 내용들
     JWT_SECRET_KEY: str = Field(..., env="JWT_SECRET_KEY")

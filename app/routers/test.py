@@ -12,7 +12,8 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.friend import FriendRequest, Friend
 from app.models.user_keyword import UserKeyword
-from app.models.user_activity import UserActivity
+from app.models.user_activity import UserActivity # <-- UserActivity 모델 임포트 추가
+from app.models.code_analysis_request import CodeAnalysisRequest
 
 router = APIRouter()
 
@@ -24,7 +25,7 @@ async def db_view(
     session: AsyncSession = Depends(get_session)
 ):
     """
-    DB 내용(Users, Conversations, Messages, Friends, Friend Requests, User Keywords, User Activities)을 HTML로 비동기 반환.
+    DB 내용(Users, Conversations, Messages, Friends, Friend Requests, User Keywords, User Activities, Code Analysis Request Logs)을 HTML로 비동기 반환.
     개발용 진단 페이지입니다. (운영 환경에서는 비활성화하거나 삭제하세요.)
     """
     if key != TEST_DB_ACCESS_KEY:
@@ -37,6 +38,7 @@ async def db_view(
     friends_result = await session.exec(select(Friend))
     user_keywords_result = await session.exec(select(UserKeyword))
     user_activities_result = await session.exec(select(UserActivity)) # <-- UserActivity 조회 추가
+    code_analysis_logs_result = await session.exec(select(CodeAnalysisRequest))
 
     users = users_result.all()
     conversations = conversations_result.all()
@@ -45,6 +47,7 @@ async def db_view(
     friends = friends_result.all()
     user_keywords = user_keywords_result.all()
     user_activities = user_activities_result.all() # <-- UserActivity 결과 저장
+    code_analysis_logs = code_analysis_logs_result.all()
 
     html_content = "<html><head><title>DB View</title><style>table {width: 100%; border-collapse: collapse; margin-bottom: 20px;} th, td {border: 1px solid #ddd; padding: 8px; text-align: left;} th {background-color: #f2f2f2;}</style></head><body>"
     html_content += "<h1>📊 Database View (Development Only)</h1>"
@@ -140,12 +143,25 @@ async def db_view(
             html_content += (
                 f"<tr><td>{escape(act.id)}</td><td>{escape(act.user_id)}</td>"
                 f"<td>{escape(act.event_type)}</td><td>{escape(str(act.timestamp))}</td>"
-                f"<td>{escape(act.session_id if act.session_id else 'None')}</td>" # None 처리
-                f"<td>{escape(str(act.duration_seconds) if act.duration_seconds is not None else 'N/A')}</td></tr>" # None 처리
+                f"<td>{escape(act.session_id if act.session_id else 'None')}</td>"
+                f"<td>{escape(str(act.duration_seconds) if act.duration_seconds is not None else 'N/A')}</td></tr>"
             )
         html_content += "</table>"
     else:
         html_content += "<p>No user activities found.</p>"
+
+    # Code Analysis Request Logs Table
+    html_content += "<h2>📈 Code Analysis Request Logs</h2>"
+    if code_analysis_logs:
+        html_content += "<table><tr><th>ID</th><th>User ID</th><th>Request Date</th><th>Timestamp (KST)</th></tr>" # Timestamp 뒤에 (KST) 추가
+        for log in code_analysis_logs:
+            html_content += (
+                f"<tr><td>{escape(log.id)}</td><td>{escape(log.user_id)}</td>"
+                f"<td>{escape(str(log.request_date))}</td><td>{escape(str(log.timestamp))}</td></tr>"
+            )
+        html_content += "</table>"
+    else:
+        html_content += "<p>No code analysis request logs found.</p>"
 
     html_content += "</body></html>"
 

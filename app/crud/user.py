@@ -6,6 +6,7 @@ from app.models.user import User
 from typing import Annotated
 from uuid import uuid4
 import datetime as dt
+from app.core.configuration import settings
 
 async def create_user(
         session: AsyncSession,
@@ -167,17 +168,17 @@ async def delete_user(
         await session.delete(user)
         await session.commit()
 
-async def increment_code_analysis(
-        session: AsyncSession,
-        user_id: str
-) -> User | None:
-    """
-    특정 사용자의 code_analysis (코드 분석/힌트 요청 횟수) 1 증가
-    """
-    user = await session.get(User, user_id)
-    if user:
-        user.code_analysis = (user.code_analysis or 0) + 1
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-    return user
+# async def increment_code_analysis(
+#         session: AsyncSession,
+#         user_id: str
+# ) -> User | None:
+#     """
+#     특정 사용자의 code_analysis (코드 분석/힌트 요청 횟수) 1 증가
+#     """
+#     user = await session.get(User, user_id)
+#     if user:
+#         user.code_analysis = (user.code_analysis or 0) + 1
+#         session.add(user)
+#         await session.commit()
+#         await session.refresh(user)
+#     return user

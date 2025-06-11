@@ -11,10 +11,11 @@ from app.models.user import User
 from app.models.friend import FriendRequest, Friend
 from app.models.user_keyword import UserKeyword
 from app.models.user_activity import UserActivity
+from app.models.code_analysis_request import CodeAnalysisRequest
 
 DATABASE_URL = (
     f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-    f"@{settings.POSTGRES_HOST}.singapore-postgres.render.com:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 )
 
 

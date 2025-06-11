@@ -6,6 +6,7 @@ from app.models.user_activity import UserActivity
 from typing import Annotated
 from uuid import uuid4
 import datetime as dt
+from app.core.configuration import settings
 
 async def create_user_activity(
         session: AsyncSession,
@@ -20,7 +21,7 @@ async def create_user_activity(
         id=str(uuid4()),
         user_id=user_id,
         event_type=event_type,
-        timestamp=dt.datetime.now(),
+        timestamp=dt.datetime.now(settings.KST),
         session_id=session_id
     )
     session.add(user_activity)

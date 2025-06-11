@@ -3,8 +3,10 @@
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models.user_keyword import UserKeyword
+from typing import Annotated
 from uuid import uuid4
 import datetime as dt
+from app.core.configuration import settings
 
 async def create_user_keyword(
     session: AsyncSession,
@@ -20,7 +22,7 @@ async def create_user_keyword(
         user_id=user_id,
         conversation_id=conversation_id,
         keyword=keyword,
-        created_at=dt.datetime.now()
+        created_at=dt.datetime.now(settings.KST)
     )
     session.add(user_keyword)
     await session.commit()
@@ -43,7 +45,7 @@ async def create_multiple_user_keywords(
             user_id=user_id,
             conversation_id=conversation_id,
             keyword=keyword,
-            created_at=dt.datetime.now()
+            created_at=dt.datetime.now(settings.KST)
         ))
     session.add_all(user_keywords)
     await session.commit()

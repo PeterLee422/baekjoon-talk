@@ -10,6 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.db.database import get_session
 from app.schemas.user import UserCreate, UserOut, Token, RefreshToken, ProfileUpdate, UserProfileUpdateOnFirstLogin
+from app.core.configuration import settings
 from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, decode_access_token
 from app.core.redis import get_redis_client
 from app.crud import user as crud_user
@@ -18,6 +19,7 @@ from app.crud import message as crud_msg
 from app.crud import friend as crud_friend
 from app.crud import user_keyword as crud_user_keyword
 from app.crud import user_activity as crud_user_activity
+from app.crud import code_analysis_request as crud_code_analysis_request
 from app.dependencies import get_current_user, oauth2_scheme, REDIS_LAST_ACTIVE_PREFIX, REDIS_SESSION_START_PREFIX
 
 router = APIRouter()
@@ -35,8 +37,8 @@ async def end_user_session(
     if start_time:
         try:
             start_time_utc = dt.datetime.fromisoformat(start_time)
-            current_time_utc = dt.datetime.now()
-            duration_seconds = int((current_time_utc - start_time_utc).total_seconds())
+            current_time_kst = dt.datetime.now(settings.KST)
+            duration_seconds = int((current_time_kst - start_time_utc).total_seconds())
         except ValueError as e:
             duration_seconds = 0
     
@@ -111,7 +113,7 @@ async def login(
         print(f"[Login] ERROR: Failed to record session_start to DB: {e}")
 
     redis_client = get_redis_client()
-    await redis_client.set(f"{REDIS_SESSION_START_PREFIX}{db_user.id}:{current_session_id}", dt.datetime.now().isoformat())
+    await redis_client.set(f"{REDIS_SESSION_START_PREFIX}{db_user.id}:{current_session_id}", dt.datetime.now(settings.KST).isoformat())
 
     # JWT Access Token 생성
     access_token = create_access_token(
@@ -144,7 +146,7 @@ async def confirm_first_login(
             goal=profile_data.goal,
             interested_tags=profile_data.interested_tags
         )
-        updated_user = await crud_user.update_first_login_at(session, user.id, dt.datetime.now())
+        updated_user = await crud_user.update_first_login_at(session, user.id, dt.datetime.now(settings.KST))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -288,13 +290,15 @@ async def delete_account(
     await crud_friend.delete_friends_by_user(session, user_id=user_id)
     # 5. 사용자 키워드 삭제
     await crud_user_keyword.delete_user_keywords(session, user_id=user_id)
-    # 6. 사용자 활동 기록 삭제
+    # 6. 코드 분석 요청 로그 삭제
+    await crud_code_analysis_request.delete_code_analysis_request_logs_by_user(session, user_id=user_id)
+    # 7. 사용자 활동 기록 삭제
     await crud_user_activity.delete_user_activity(session, user_id=user_id)
 
     for conversation in conversations:
         await crud_conv.delete_conversation(session, conv_id=conversation.id)
 
-    # 7. 사용자 계정 삭제
+    # 8. 사용자 계정 삭제
     await crud_user.delete_user(session, user_id=user_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

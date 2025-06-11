@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.configuration import settings
 from app.core.security import decode_access_token
 from app.core.redis import get_redis_client
 from app.db.database import get_session

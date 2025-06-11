@@ -1,6 +1,7 @@
 # app/routers/chat.py
 
 import os
+import datetime as dt
 
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
@@ -16,6 +17,7 @@ from app.crud import message as crud_message
 from app.crud import conversation as crud_conv
 from app.crud import user as crud_user
 from app.crud import user_keyword as crud_user_keyword
+from app.crud import code_analysis_request as crud_code_analysis_request
 from app.services import stt, llm, tts
 
 router = APIRouter()
@@ -208,7 +210,6 @@ async def post_message(
     msg_in: MessageIn,
     session: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[UserOut, Depends(get_current_user)],
-    background_tasks: BackgroundTasks
 ):
     """
     기존 대화에 메시지를 추가하고, LLM으로부터 답변을 받아 저장
@@ -223,13 +224,13 @@ async def post_message(
     
     # 음성 입력이 있으면 STT로 변환한다.
     content = ""
-    code_content_for_db = None
-    problem_info_for_db = None
+
     if msg_in.voice:
         content = stt.transcribe_audio(msg_in.voice)
     elif msg_in.code:
         # TODO: System prompt 추가하기
-        await crud_user.increment_code_analysis(session, user.id)
+        #await crud_user.increment_code_analysis(session, user.id)
+        await crud_code_analysis_request.create_code_analysis_request(session, user.id, dt.date.today())
 
         code_block = (
             f"분석할 코드 ({msg_in.language or 'unknown'}):\n"
@@ -239,6 +240,7 @@ async def post_message(
 
         if msg_in.problem_info:
             content = (
+                f"당신은 코드의 오류를 찾고 개선점을 찾아야 합니다. 직접적으로 코드를 수정하지 말고, 사용자 질문에 맞는 답변을 주세요.\n"
                 f"문제 정보: {msg_in.problem_info}\n"
                 f"{code_block}\n\n"
                 f"사용자 질문: {user_question}"
@@ -263,6 +265,7 @@ async def post_message(
         content=msg_in.content
     )
 
+    print(content)
     # LLM 호출 후 response 생성
     text_response, speech_response, keywords = await llm.generate_response(conversation.id, user, content, session)
 

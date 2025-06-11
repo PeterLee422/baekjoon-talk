@@ -136,14 +136,21 @@ async def save_session(
         print(f"[LLM Service] Redis: LLM session saved for conv_id {conv_id}. TTL: {REDIS_LLM_SESSION_TTL_SECONDS}s.")
     except Exception as e:
         print(f"[LLM Service] ERROR: Failed to save LLM session to Redis for {conv_id}: {e}")
-
+    # redis_data = {
+    #     "username": llm_session.user_handle,
+    #     "prev_msgs": llm_session.prev_msgs,
+    #     "recommendations": llm_session.recommendations.to_dict(orient="records")
+    # }
+    # await redis_client.set(_session_key(conv_id), json.dumps(redis_data))
     await crud_conv.update_last_modified(db_session, conv_id)
 
 async def delete_session(
         conv_id: str
 ):
+    # await redis_client.delete(_session_key(conv_id))
     redis_client = get_redis_client()
     
+    # session_registry.pop(conv_id, None)
     await redis_client.delete(_session_key(conv_id))
     print(f"[LLM Service] Redis and in-memory: LLM session deleted for conv_id {conv_id}.")
 
@@ -167,6 +174,7 @@ async def generate_response(
         session.title and # session에 title이 존재하고
         session.title.strip().lower() != "untitled" # session의 title 값이 untitled 일 때
     ):
+        print("악!!!!!!\n\n\n\n")
         conversation.title = session.title
         db_session.add(conversation)
         await db_session.commit()
