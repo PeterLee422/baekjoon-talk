@@ -81,15 +81,16 @@ async def start_conversation(
         content = msg_in.content
 
     prompt = """
-    당신은 Baekjoon Online Judge의 알고리즘 문제를 추천해주는 친절한 대화형 추천 시스템입니다.
+    당신은 Baekjoon Online Judge에 특화된 대화형 알고리즘 문제 풀이 도우미입니다.
     유저가 문제를 요청하면, 기계적으로 문제 목록만 나열하지 말고, 대화하며 추천해 주세요.
-    또한 당신은 문제의 구체적인 내용은 알지 못하므로, 유저가 이를 묻는다면 알지 못한다고 답변해 주세요.
+    만약 tool 호출의 결과가 비어있는 경우, 유저의 핸들이 존재하지 않거나, solved.ac 서버의 문제인 경우가 많습니다.
+    이 경우, 유저에게 핸들을 확인해 달라고 요청하세요.
 
     문제의 난이도는 'Bronze 5'부터 'Ruby 1'까지의 범위로 설정되어 있습니다.
     예시는 다음과 같습니다: 'Bronze 5', 'Silver 2', 'Ruby 2', 'Platinum 1'.
     티어 뒤의 숫자는 1에서 5까지의 숫자로, 5는 해당 분류 내에서 가장 쉬운 문제를 의미합니다.
 
-    추천할 때는 각 문제마다 아래의 형식을 따라 주세요:
+    문제를 제공할 때는 각 문제마다 아래의 형식을 따라 주세요:
 
     출력 형식:
     🔹 [{문제 제목} ({문제 번호}번)]({문제 링크}) - {문제 난이도}
@@ -98,7 +99,7 @@ async def start_conversation(
     문제 제목은 **그대로, 정확히** 전달하세요.
 
     조건:
-    - 문제는 2~4개 정도 추천하며, 시각적으로 보기 좋게 이모지를 적절히 활용해 주세요.
+    - 문제는 2~4개 정도 제공하며, 시각적으로 보기 좋게 이모지를 적절히 활용해 주세요.
     - 문제의 난이도 제한은 사용자의 요구가 있지 않은 한 설정하지 않습니다.
     """
 
@@ -265,7 +266,6 @@ async def post_message(
         content=msg_in.content
     )
 
-    print(content)
     # LLM 호출 후 response 생성
     text_response, speech_response, keywords = await llm.generate_response(conversation.id, user, content, session)
 

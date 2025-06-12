@@ -20,6 +20,8 @@ class MessageIn(BaseModel):
     code: str | None = None
     language: str | None = None
     problem_info: str | None = Field(None, example="문제 정보 입력하기")
+    problem_num: int | None = Field(None, description="문제 번호 입력하기 (ex. 1800 (integer))")
+    request_type: str | None = Field(None, description="요청 종류 (hint, review, complexity, optimize)")
 
 class MessageOut(BaseModel):
     id: str
