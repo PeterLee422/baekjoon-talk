@@ -37,3 +37,7 @@ class ConversationOutWithFirstMessage(BaseModel):
     first_message: MessageOut
     class Config:
         from_attributes = True
+
+class LatestProblemInfo(BaseModel):
+    problem_number: int | None = Field(None, description="가장 최근에 입력된 문제 번호")
+    problem_info: str | None = Field(None, description="가장 최근에 입력된 문제 정보 (text)")

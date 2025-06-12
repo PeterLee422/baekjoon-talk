@@ -61,6 +61,27 @@ async def update_last_modified(
         await session.refresh(conversation)
     return conversation
 
+async def update_latest_problem_info(
+        session: AsyncSession,
+        conversation_id: str,
+        problem_number: int | None = None,
+        problem_info: str | None = None
+) -> Conversation | None:
+    """
+    대화의 가장 최근 문제 번호와 문제 정보 업데이트
+    """
+    conversation = await session.get(Conversation, conversation_id)
+    if conversation:
+        if problem_number is not None:
+            conversation.last_problem_number = problem_number
+        if problem_info is not None:
+            conversation.last_problem_info = problem_info
+        
+        session.add(conversation)
+        await session.commit()
+        await session.refresh(conversation)
+    return conversation
+
 async def list_user_conversation(
         session: AsyncSession,
         owner_id: str

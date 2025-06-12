@@ -19,8 +19,8 @@ async def lifespan(app: FastAPI):
         print("Redis 연결 실패!", e)
         raise
 
-    # await reset_db()
-    await init_db()
+    await reset_db()
+    #await init_db()
     yield
 
 app = FastAPI(

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.redis import get_redis_client
-from app.schemas.chat import ConversationOutWithFirstMessage, ConversationOut, MessageIn, MessageOut
+from app.schemas.chat import ConversationOutWithFirstMessage, ConversationOut, MessageIn, MessageOut, LatestProblemInfo
 from app.schemas.user import UserOut
 from app.dependencies import get_current_user
 from app.db.database import get_session
@@ -289,6 +289,15 @@ async def post_message(
     # 대화방 마지막 수정시간 갱신
     await crud_conv.update_last_modified(session, conv_id)
 
+    # 대화 세션에 최신 문제 정보 업데이트
+    if msg_in.problem_num is not None or msg_in.problem_info is not None:
+        await crud_conv.update_latest_problem_info(
+            session,
+            conv_id,
+            msg_in.problem_num,
+            msg_in.problem_info
+        )
+
     # TTS
     redis_client = get_redis_client()
     await redis_client.setex(f"tts:{assistant_message.id}", 300, speech_response)
@@ -348,3 +357,25 @@ async def get_tts_stream(
         raise HTTPException(status_code=404, detail="No cached summary for this message")
 
     return tts.generate_speech(speech_text)
+
+@router.get("/conversations/{conv_id}/latest-problem", response_model=LatestProblemInfo)
+async def get_latest_problem_info_in_conversation(
+    conv_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[UserOut, Depends(get_current_user)]
+):
+    """
+    특정 대화 세션에서 가장 최근에 입력된 문제 번호와 문제 정보를 조회
+    """
+    conversation = await crud_conv.get_conversation(session, conv_id)
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    if conversation.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
+    
+    return LatestProblemInfo(
+        problem_number=conversation.last_problem_number,
+        problem_info=conversation.last_problem_info
+    )
