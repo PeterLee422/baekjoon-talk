@@ -12,9 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.db.database import get_session
 from app.schemas.user import UserOut
-from app.schemas.feedback import UserFeedbackStats, RecommendedTagStats, CodeErrorStats
-from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, decode_access_token
-from app.core.redis import get_redis_client
+from app.schemas.feedback import UserFeedbackStats, RecommendedTagStats, CodeErrorStats, RequestTypeDates
 from app.crud import user as crud_user
 from app.crud import conversation as crud_conv
 from app.crud import message as crud_msg
@@ -44,21 +42,10 @@ async def get_user_feedback_stats(
     db_user = await crud_user.get_user_by_email(session, user.email)
 
     # 1. 힌트 요청 횟수 (code_analysis)
-    #all_request_dates = await crud_code_analysis_request.get_code_analysis_request_dates_by_user(session, user_id=user_id)
-    statement_code_analysis = (
-        select(
-            CodeAnalysisRequest.request_date,
-            func.count(CodeAnalysisRequest.id)
-        )
-        .where(CodeAnalysisRequest.user_id == user_id)
-        .group_by(CodeAnalysisRequest.request_date)
-        .order_by(CodeAnalysisRequest.request_date.asc())
-    )
-    result_code_analysis = await session.exec(statement_code_analysis)
-    all_request_dates = []
-    for date_object, count in result_code_analysis.all():
-        for _ in range(count):
-            all_request_dates.append(date_object)
+    code_analysis_dates = await crud_code_analysis_request.get_code_analysis_request_dates_by_user(session, user_id=user_id)
+    request_type_counts = []
+    for req_type, dates_list in code_analysis_dates:
+        request_type_counts.append(RequestTypeDates(request_type=req_type, dates=dates_list))
 
     # 2. LLM이 분석한 사용자의 실수 (top_code_errors)
     code_error_keywords_list = [
@@ -116,7 +103,7 @@ async def get_user_feedback_stats(
     ]
 
     return UserFeedbackStats(
-        code_analysis_requests=all_request_dates,
+        code_analysis_requests=request_type_counts,
         top_code_errors=top_code_errors,
         total_logins=total_logins,
         average_session_duration_minutes=average_session_duration_minutes,

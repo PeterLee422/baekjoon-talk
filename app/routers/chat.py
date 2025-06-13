@@ -230,27 +230,41 @@ async def post_message(
         content = stt.transcribe_audio(msg_in.voice)
     elif msg_in.code:
         # TODO: System prompt 추가하기
-        #await crud_user.increment_code_analysis(session, user.id)
-        await crud_code_analysis_request.create_code_analysis_request(session, user.id, dt.date.today())
+        current_request_type = msg_in.request_type if msg_in.request_type else "general"
+        await crud_code_analysis_request.create_code_analysis_request(session, user.id, current_request_type, dt.date.today())
+
+        request_type_instructions = ""
+        if msg_in.request_type:
+            if msg_in.request_type.lower() == "hint":
+                request_type_instructions = "다음 코드에 대한 힌트를 제공해주세요. 직접적인 정답보다는 문제 해결의 방향성을 제시하는 데 초점을 맞춰주세요.\n\n"
+            elif msg_in.request_type.lower() == "review":
+                request_type_instructions = "다음 코드에 대한 상세한 코드 리뷰를 수행해주세요. 가독성, 효율성, 버그 가능성, 모범 사례 등을 평가해주세요.\n\n"
+            elif msg_in.request_type.lower() == "complexity":
+                request_type_instructions = "다음 코드의 시간 복잡도와 공간 복잡도를 분석하여 설명해주세요.\n\n"
+            elif msg_in.request_type.lower() == "optimize":
+                request_type_instructions = "다음 코드를 최적화하는 방법을 제안해주세요. 성능 개선, 코드 간결화, 자원 효율성 등에 초점을 맞춰주세요.\n\n"
+            else:
+                request_type_instructions = f"사용자 질문에 따라 다음 코드를 분석하고 답변해주세요.\n\n"
 
         code_block = (
-            f"분석할 코드 ({msg_in.language or 'unknown'}):\n"
+            f"분석할 코드는 다음과 같아. (언어: {msg_in.language or 'unknown'}):\n"
             f"```\n{msg_in.code}\n```"
         )
         user_question = msg_in.content if msg_in.content else "위의 코드에 대해 설명하거나 오류를 찾고 힌트를 주세요."
 
         if msg_in.problem_info:
-            content = (
-                f"당신은 코드의 오류를 찾고 개선점을 찾아야 합니다. 직접적으로 코드를 수정하지 말고, 사용자 질문에 맞는 답변을 주세요.\n"
+            content += (
+                f"{request_type_instructions}"
                 f"문제 정보: {msg_in.problem_info}\n"
-                f"{code_block}\n\n"
-                f"사용자 질문: {user_question}"
             )
-        else:
-            content = (
-                f"{code_block}\n\n"
-                f"사용자 질문: {user_question}"
+        if msg_in.problem_num:
+            content += (
+                f"문제 번호: {msg_in.problem_num}\n"
             )
+        content += (
+            f"{code_block}\n\n"
+            f"사용자 질문: {user_question}"
+        )
     else:
         content = msg_in.content
 

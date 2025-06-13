@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     TIMEZONE: str = "Asia/Seoul"
     @property
     def KST(self) -> dt.tzinfo:
-        return pytz.timezone(self.TIMEZONE);
+        return pytz.timezone(self.TIMEZONE)
 
     # JWT Token 관련 내용들
     JWT_SECRET_KEY: str = Field(..., env="JWT_SECRET_KEY")
