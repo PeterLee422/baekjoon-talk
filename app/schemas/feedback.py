@@ -21,3 +21,4 @@ class UserFeedbackStats(BaseModel):
     total_logins: int = Field(description="총 접속 횟수")
     average_session_duration_minutes: float = Field(description="평균 접속 시간 (분)")
     top_recommended_tags: list[RecommendedTagStats] = Field(description="가장 많이 추천받은 문제 태그")
+    llm_conversation_summary: str | None = Field(None, description="LLM이 생성한 대화 요악/평가 (3줄)")

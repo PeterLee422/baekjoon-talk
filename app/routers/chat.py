@@ -304,12 +304,13 @@ async def post_message(
     await crud_conv.update_last_modified(session, conv_id)
 
     # 대화 세션에 최신 문제 정보 업데이트
-    if msg_in.problem_num is not None or msg_in.problem_info is not None:
+    if msg_in.code is not None or msg_in.problem_num is not None or msg_in.problem_info is not None:
         await crud_conv.update_latest_problem_info(
             session,
             conv_id,
             msg_in.problem_num,
-            msg_in.problem_info
+            msg_in.problem_info,
+            msg_in.code
         )
 
     # TTS
@@ -391,5 +392,6 @@ async def get_latest_problem_info_in_conversation(
     
     return LatestProblemInfo(
         problem_number=conversation.last_problem_number,
-        problem_info=conversation.last_problem_info
+        problem_info=conversation.last_problem_info,
+        code=conversation.last_code_content
     )

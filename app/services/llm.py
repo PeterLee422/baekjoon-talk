@@ -112,6 +112,49 @@ async def get_llm_session(
     # session_registry[conv_id] = llm_session
     return llm_session
 
+async def get_stateless_llm_summary(
+        user_handle: str,
+        profile: dict,
+        message_content: str
+) -> str:
+    """
+    Feedback 세션을 위한 세션 생성 (Redis에 저장하지 않음)
+    message_content는 통계 데이터가 포함된 텍스트
+    """
+    llmrec_instance = initialize_llmrec_instance()
+
+    summary_system_prompt = """
+    당신은 사용자 활동 통계 데이터를 분석하고, 사용자의 코딩 학습 경험에 대한 간결하고 통찰력있는 3줄 요약 또는 평가를 제공하는 도우미입니다.
+    제공된 통계 정보를 바탕으로 사용자의 강점, 개선할 점, 학습 패턴, 흥미 분야 등을 종합적으로 평가해주세요.
+    평가는 긍정적이고 격려하는 톤으로 작성하며, 반드시 3줄로 구성해주세요.
+    """
+
+    messages_for_llm = [
+        {"role": "developer", "content": summary_system_prompt},
+        {"role": "user", "content": f"사용자 프로필: {profile}\n\n사용자 통계 데이터:\n{message_content}\n\n위 통계를 바탕으로 3줄 요약을 생성해주세요."}
+    ]
+    print(messages_for_llm)
+
+    try:
+        summary_response_text, _, _, _ = llmrec_instance.llm.chat(
+            user_input=messages_for_llm[1]["content"],
+            prev_msgs=[messages_for_llm[0]],
+            user_handle=user_handle,
+            profile=profile
+        )
+        print("llm.chat 불러오기")
+
+        lines = [line.strip() for line in summary_response_text.split('\n') if line.strip()]
+        final_summary = "\n".join(lines[:3])
+        if len(lines) > 3:
+            final_summary += "..."
+    
+    except Exception as e:
+        print(f"ERROR: LLM summary generation failed: {e}")
+        final_summary = "대화 요약 생성 중 오류가 발생했습니다."
+    
+    return final_summary
+
 async def save_session(
         conv_id: str,
         llm_session: Session,
@@ -174,7 +217,6 @@ async def generate_response(
         session.title and # session에 title이 존재하고
         session.title.strip().lower() != "untitled" # session의 title 값이 untitled 일 때
     ):
-        print("악!!!!!!\n\n\n\n")
         conversation.title = session.title
         db_session.add(conversation)
         await db_session.commit()

@@ -2,7 +2,6 @@
 
 import datetime as dt
 from typing import Annotated
-from uuid import uuid4
 from collections import Counter
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,6 +23,7 @@ from app.dependencies import get_current_user
 from app.models.user_activity import UserActivity
 from app.models.user_keyword import UserKeyword
 from app.models.code_analysis_request import CodeAnalysisRequest
+from app.services.llm import get_stateless_llm_summary
 
 router = APIRouter()
 
@@ -101,11 +101,50 @@ async def get_user_feedback_stats(
         RecommendedTagStats(tag=tag, count=count)
         for tag, count in recommended_tag_counts.most_common(5)
     ]
+    
+    # 5. LLM의 유저 평가 (3줄평)
+    llm_conversation_summary = None
+    stats_text_summary = [
+        f"총 코드 분석/힌트 요청 횟수: {sum(len(rtc.dates) for rtc in request_type_counts)}회"
+    ]
+    if request_type_counts:
+        stats_text_summary.append("요청 종류별 횟수: ")
+        for rtc in request_type_counts:
+            stats_text_summary.append(f"   - {rtc.request_type if rtc.request_type else '일반 요청'}: {len(rtc.dates)}회")
+    
+    if top_code_errors:
+        stats_text_summary.append("가장 흔한 코드 오류 유형: ")
+        for error_stat in top_code_errors:
+            stats_text_summary.append(f"   - {error_stat.error_type}: {error_stat.count}회")
+    
+    stats_text_summary.append(f"총 로그인 횟수: {total_logins}회")
+    stats_text_summary.append(f"평균 접속 시간: {average_session_duration_minutes:.2f}분")
+
+    if top_recommended_tags:
+        stats_text_summary.append("주로 추천받은 문제 태그: ")
+        for tag_stat in top_recommended_tags:
+            stats_text_summary.append(f"   - {tag_stat.tag}: {tag_stat.count}회")
+    
+    stats_text_for_llm = "\n".join(stats_text_summary)
+
+    if stats_text_for_llm.strip():
+        profile_for_llm = {
+            "user_level": user.user_level,
+            "goal": user.goal,
+            "interested_tags": ", ".join(user.interested_tags) if user.interested_tags else ""
+        }
+
+        llm_conversation_summary = await get_stateless_llm_summary(
+            user_handle=user.username,
+            profile=profile_for_llm,
+            message_content=stats_text_for_llm
+        )
 
     return UserFeedbackStats(
         code_analysis_requests=request_type_counts,
         top_code_errors=top_code_errors,
         total_logins=total_logins,
         average_session_duration_minutes=average_session_duration_minutes,
-        top_recommended_tags=top_recommended_tags
+        top_recommended_tags=top_recommended_tags,
+        llm_conversation_summary=llm_conversation_summary
     )
