@@ -310,7 +310,8 @@ async def post_message(
             conv_id,
             msg_in.problem_num,
             msg_in.problem_info,
-            msg_in.code
+            msg_in.code,
+            msg_in.language
         )
 
     # TTS
@@ -393,5 +394,6 @@ async def get_latest_problem_info_in_conversation(
     return LatestProblemInfo(
         problem_number=conversation.last_problem_number,
         problem_info=conversation.last_problem_info,
-        code=conversation.last_code_content
+        code=conversation.last_code_content,
+        language=conversation.last_code_language
     )

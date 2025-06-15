@@ -66,7 +66,8 @@ async def update_latest_problem_info(
         conversation_id: str,
         problem_number: int | None = None,
         problem_info: str | None = None,
-        code_content: str | None = None
+        code_content: str | None = None,
+        code_language: str | None = None
 ) -> Conversation | None:
     """
     대화의 가장 최근 문제 번호, 문제 정보, 코드 업데이트
@@ -79,6 +80,8 @@ async def update_latest_problem_info(
             conversation.last_problem_info = problem_info
         if code_content is not None:
             conversation.last_code_content = code_content
+        if code_language is not None:
+            conversation.last_code_language = code_language
         
         session.add(conversation)
         await session.commit()
