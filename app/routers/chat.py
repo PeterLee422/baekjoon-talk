@@ -266,7 +266,20 @@ async def post_message(
             f"사용자 질문: {user_question}"
         )
     else:
-        content = msg_in.content
+        request_type_instructions = ""
+        if msg_in.problem_info and msg_in.request_type.lower() == "hint":
+            request_type_instructions = "다음 문제 정보에 대한 힌트를 제공해주세요. 일반적인 문제 해결의 방향성, 사람들이 자주 틀리는 부분 등을 언급해주세요."
+            content = (
+                f"{request_type_instructions}\n"
+                f"문제 정보: {msg_in.problem_info}\n"
+            )
+        if msg_in.problem_num:
+            content += (
+                f"문제 번호: {msg_in.problem_num}\n"
+            )
+        content += (
+            f"사용자 질문: {msg_in.content}"
+        )
 
     if not content.strip():
         raise HTTPException(status_code=400, detail="Message content required.")
@@ -281,6 +294,7 @@ async def post_message(
     )
 
     # LLM 호출 후 response 생성
+    print(content)
     text_response, speech_response, keywords = await llm.generate_response(conversation.id, user, content, session)
 
     # Keyword 저장
