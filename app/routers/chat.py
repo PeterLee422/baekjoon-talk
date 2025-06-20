@@ -238,10 +238,10 @@ async def post_message(
             if msg_in.request_type.lower() == "hint":
                 #request_type_instructions = "다음 코드에 대한 힌트를 제공해주세요. 직접적인 정답보다는 문제 해결의 방향성을 제시하는 데 초점을 맞춰주세요.\n\n"
                 request_type_instructions = (
-                    "당신은 국제 알고리즘 대회에서 수상 경력을 가진 멘토입니다."
-                    "학생이 **스스로** 문제를 풀 수 있도록 '계단식 힌트'를 제공합니다."
-                    "힌트는 총 3단계로, 난이도가 낮은 힌트 -> 중간 힌트 -> 거의 풀이 직전 단계 힌트 순서입니다."
-                    "정답이나 완전한 코드를 제공하는 정말 더 이상 줄 수 있는 힌트가 없을 때 사용자에게 힌트 요청 습관에 대한 가볍고 짧은 경고를 한 후 사용자가 동의하면 그 때 제공합니다."
+                    "당신은 국제 알고리즘 대회에서 수상 경력을 가진 멘토입니다.\n"
+                    "학생이 **스스로** 문제를 풀 수 있도록 '계단식 힌트'를 제공합니다.\n"
+                    "힌트는 총 3단계로, 난이도가 낮은 힌트 -> 중간 힌트 -> 거의 풀이 직전 단계 힌트 순서입니다.\n"
+                    "정답이나 완전한 코드를 제공하는 정말 더 이상 줄 수 있는 힌트가 없을 때 사용자에게 힌트 요청 습관에 대한 가볍고 짧은 경고를 한 후 사용자가 동의하면 그 때 제공합니다.\n"
                 )
             elif msg_in.request_type.lower() == "review":
                 #request_type_instructions = "다음 코드에 대한 상세한 코드 리뷰를 수행해주세요. 가독성, 효율성, 버그 가능성, 모범 사례 등을 평가해주세요.\n\n"
@@ -256,14 +256,14 @@ async def post_message(
                     "5. 대안/개선 - 이론적으로 더 우수한 알고리즘이나 데이터 구조 제안\n"
                     "6. 참고 구현 - 핵심 로직만 간결히 보여주는 리팩터 예시 (필수 아님. 30줄 이내)\n\n"
                     "코드 스타일/패키징 언급은 최소화하고, 알고리즘적 통찰에 집중하세요."
-                    "정답 전체 구현이나 최종 출력은 제공하지 마십시오."
+                    "정답 전체 구현이나 최종 출력은 제공하지 마십시오.\n"
                 )
             elif msg_in.request_type.lower() == "complexity":
                 #request_type_instructions = "다음 코드의 시간 복잡도와 공간 복잡도를 분석하여 설명해주세요.\n\n"
                 request_type_instructions = (
                     "당신은 컴퓨터과학 교수이며, 시간·공간 복잡도 분석을 엄밀히 수행합니다.\n"
                     "분석 결과는 'O(·) 표기', '주요 연산 설명', '최악·평균·최선' 3단계로 나누어 서술합니다.\n"
-                    "증명 스케치는 꼭 포함해 주세요.\n\n"
+                    "증명 스케치는 꼭 포함해 주세요.\n"
                 )
             elif msg_in.request_type.lower() == "optimize":
                 #request_type_instructions = "다음 코드를 최적화하는 방법을 제안해주세요. 성능 개선, 코드 간결화, 자원 효율성 등에 초점을 맞춰주세요.\n\n"
@@ -273,7 +273,7 @@ async def post_message(
                     "가능하다면 **알고리즘적 개선**을 우선 고려하고, 이후에 **언어·컴파일러 수준 최적화**를 추가로 제안합니다.\n"
                 )
             else:
-                request_type_instructions = f"사용자 질문에 따라 다음 코드를 분석하고 답변해주세요.\n\n"
+                request_type_instructions = f"사용자 질문에 따라 다음 코드를 분석하고 답변해주세요.\n"
 
         code_block = (
             f"사용자가 입력한 코드는 다음과 같습니다. (언어: {msg_in.language or 'unknown'}):\n"
@@ -283,7 +283,7 @@ async def post_message(
 
         if msg_in.problem_info:
             content += (
-                f"{request_type_instructions}"
+                f"{request_type_instructions}\n"
                 f"문제 정보: {msg_in.problem_info}\n"
             )
         if msg_in.problem_num:
@@ -299,14 +299,13 @@ async def post_message(
         if msg_in.problem_info and msg_in.request_type.lower() == "hint":
             request_type_instructions = (
                 "당신은 국제 알고리즘 대회에서 수상 경력을 가진 멘토입니다.\n"
-                "학생이 **스스로** 문제를 풀 수 있도록 '계단식 힌트'를 제공합니다."
-                "힌트는 총 3단계로, 난이도가 낮은 힌트 -> 중간 힌트 -> 거의 풀이 직전 단계 힌트 순서입니다."
-                "다음 문제 정보에 대한 힌트를 제공해주세요. 일반적인 문제 해결의 방향성, 사람들이 자주 틀리는 부분 등을 언급해주세요."
+                "학생이 **스스로** 문제를 풀 수 있도록 '계단식 힌트'를 제공합니다.\n"
+                "힌트는 총 3단계로, 난이도가 낮은 힌트 -> 중간 힌트 -> 거의 풀이 직전 단계 힌트 순서입니다.\n"
+                "다음 문제 정보에 대한 힌트를 제공해주세요. 일반적인 문제 해결의 방향성, 사람들이 자주 틀리는 부분 등을 언급해주세요.\n"
             )
             content = (
                 f"{request_type_instructions}\n"
-                f"문제 정보: 
-                {msg_in.problem_info}\n"
+                f"문제 정보: {msg_in.problem_info}\n"
             )
         if msg_in.problem_num:
             content += (
