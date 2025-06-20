@@ -20,5 +20,6 @@ class User(SQLModel, table=True):
     user_level: str | None = Field(default=None, description="'very low', 'low', 'medium', 'high', 'very high'")
     goal: str | None = Field(default=None, description="'coding test', 'contest', 'learning', 'hobby'")
     interested_tags: list[str] = Field(default_factory=list, sa_column=Column(JSON), description="(복수 선택 가능) 'DP', '그래프', '자료구조', '수학', '구현', '문자열', '탐욕법', '트리', '정렬'")
-    # For Feedback
-    # code_analysis: int = Field(default=0, description="코드 분석 / 힌트 요청 횟수")
+    # For Password Reset
+    pwd_reset_requested_at: dt.datetime | None = None
+    pwd_rev: int = 0

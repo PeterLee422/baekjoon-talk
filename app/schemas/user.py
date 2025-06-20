@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field, HttpUrl, EmailStr
+from pydantic import BaseModel, Field, HttpUrl, EmailStr, constr
 import datetime as dt
 
 class UserBase(BaseModel):
@@ -64,3 +64,14 @@ class RefreshToken(BaseModel):
 class TokenData(BaseModel):
     username: str | None = None
     session_id: str | None = None
+
+# About Password Reset
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: constr(min_length=8, max_length=128)
+
+class MsgOut(BaseModel):
+    msg: str

@@ -4,14 +4,16 @@ import datetime as dt
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Response, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.db.database import get_session
-from app.schemas.user import UserCreate, UserOut, Token, RefreshToken, ProfileUpdate, UserProfileUpdateOnFirstLogin
+from app.schemas.user import UserCreate, UserOut, Token, RefreshToken, ProfileUpdate, UserProfileUpdateOnFirstLogin, ForgotPasswordIn, ResetPasswordIn, MsgOut
+from app.services.email import send_reset_email
+from app.core.security import decode_password_reset_token
 from app.core.configuration import settings
-from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, decode_access_token
+from app.core.security import create_access_token, create_refresh_token, get_password_hash, verify_password, decode_access_token, create_password_reset_token
 from app.core.redis import get_redis_client
 from app.crud import user as crud_user
 from app.crud import conversation as crud_conv
@@ -21,6 +23,7 @@ from app.crud import user_keyword as crud_user_keyword
 from app.crud import user_activity as crud_user_activity
 from app.crud import code_analysis_request as crud_code_analysis_request
 from app.dependencies import get_current_user, oauth2_scheme, REDIS_LAST_ACTIVE_PREFIX, REDIS_SESSION_START_PREFIX
+from app.models.user import User
 
 router = APIRouter()
 
@@ -252,6 +255,53 @@ async def logout(
     await end_user_session(session, db_user.id, session_id)
 
     return {"message": "Logged out successfully."}
+
+@router.post("/password/forgot", status_code=status.HTTP_204_NO_CONTENT)
+async def forgot_password(
+    body: ForgotPasswordIn,
+    bg: BackgroundTasks,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    user = crud_user.get_user_by_email(session, body.email)
+    if not user:
+        return # raise 문으로 바꾸기
+    
+    if (
+        user.pwd_reset_requested_at and
+        (dt.datetime.now(settings.KST) - user.pwd_reset_requested_at)
+        < dt.timedelta(minutes=15)
+    ):
+        return
+    token = create_password_reset_token(user.id, user.pwd_rev)
+
+    crud_user.mark_reset_requested(session, user)
+    bg.add_task(send_reset_email, user.email, token)
+
+@router.post("/password/reset", response_model=MsgOut)
+async def reset_password(
+    body: ResetPasswordIn,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    try:
+        payload = decode_password_reset_token(body.token)
+    except Exception:
+        raise HTTPException(status_code=400, detail="유효하지 않은 토큰입니다.")
+
+    if payload.get("scope") != "password_reset":
+        raise HTTPException(status_code=400, detail="유효하지 않은 토큰입니다.")
+
+    user_id = payload.get("sub")
+    rev = payload.get("rev")
+
+    if not user_id or rev is None:
+        raise HTTPException(status_code=400, detail="잘못된 토큰입니다.")
+    
+    user = session.get(User, user_id)
+    if not user or user.pwd_rev != rev:
+        raise HTTPException(status_code=400, detail="이미 사용된 토큰입니다.")
+    
+    hashed_pw = get_password_hash(body.new_password)
+    crud_user.update_password(session, user, hashed_pw)
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_account(
